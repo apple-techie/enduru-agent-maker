@@ -58,6 +58,7 @@ export function TerminalPanel({
   const fitAddonRef = useRef<XFitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastShortcutTimeRef = useRef<number>(0);
   const [isTerminalReady, setIsTerminalReady] = useState(false);
   const [shellName, setShellName] = useState("shell");
 
@@ -182,28 +183,43 @@ export function TerminalPanel({
 
       // Custom key handler to intercept terminal shortcuts
       // Return false to prevent xterm from handling the key
+      const SHORTCUT_COOLDOWN_MS = 300; // Prevent rapid firing
+
       terminal.attachCustomKeyEventHandler((event) => {
         // Only intercept keydown events
         if (event.type !== 'keydown') return true;
 
+        // Check cooldown to prevent rapid terminal creation
+        const now = Date.now();
+        const canTrigger = now - lastShortcutTimeRef.current > SHORTCUT_COOLDOWN_MS;
+
         // Alt+D - Split right
         if (event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'd') {
           event.preventDefault();
-          onSplitHorizontalRef.current();
+          if (canTrigger) {
+            lastShortcutTimeRef.current = now;
+            onSplitHorizontalRef.current();
+          }
           return false;
         }
 
         // Alt+Shift+D - Split down
         if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'd') {
           event.preventDefault();
-          onSplitVerticalRef.current();
+          if (canTrigger) {
+            lastShortcutTimeRef.current = now;
+            onSplitVerticalRef.current();
+          }
           return false;
         }
 
         // Alt+W - Close terminal
         if (event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'w') {
           event.preventDefault();
-          onCloseRef.current();
+          if (canTrigger) {
+            lastShortcutTimeRef.current = now;
+            onCloseRef.current();
+          }
           return false;
         }
 

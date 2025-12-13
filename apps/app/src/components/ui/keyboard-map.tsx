@@ -161,11 +161,18 @@ interface KeyboardMapProps {
 export function KeyboardMap({ onKeySelect, selectedKey, className }: KeyboardMapProps) {
   const { keyboardShortcuts } = useAppStore();
 
+  // Merge with defaults to ensure new shortcuts are always shown
+  const mergedShortcuts = React.useMemo(() => ({
+    ...DEFAULT_KEYBOARD_SHORTCUTS,
+    ...keyboardShortcuts,
+  }), [keyboardShortcuts]);
+
   // Create a reverse map: base key -> list of shortcut names (including info about modifiers)
   const keyToShortcuts = React.useMemo(() => {
     const map: Record<string, Array<{ name: keyof KeyboardShortcuts; hasModifiers: boolean }>> = {};
-    (Object.entries(keyboardShortcuts) as [keyof KeyboardShortcuts, string][]).forEach(
+    (Object.entries(mergedShortcuts) as [keyof KeyboardShortcuts, string][]).forEach(
       ([shortcutName, shortcutStr]) => {
+        if (!shortcutStr) return; // Skip undefined shortcuts
         const parsed = parseShortcut(shortcutStr);
         const normalizedKey = parsed.key.toUpperCase();
         const hasModifiers = !!(parsed.shift || parsed.cmdCtrl || parsed.alt);
@@ -176,7 +183,7 @@ export function KeyboardMap({ onKeySelect, selectedKey, className }: KeyboardMap
       }
     );
     return map;
-  }, [keyboardShortcuts]);
+  }, [mergedShortcuts]);
 
   const renderKey = (keyDef: { key: string; label: string; width: number }) => {
     const normalizedKey = keyDef.key.toUpperCase();
@@ -185,7 +192,7 @@ export function KeyboardMap({ onKeySelect, selectedKey, className }: KeyboardMap
     const isBound = shortcuts.length > 0;
     const isSelected = selectedKey?.toUpperCase() === normalizedKey;
     const isModified = shortcuts.some(
-      (s) => keyboardShortcuts[s] !== DEFAULT_KEYBOARD_SHORTCUTS[s]
+      (s) => mergedShortcuts[s] !== DEFAULT_KEYBOARD_SHORTCUTS[s]
     );
 
     // Get category for coloring (use first shortcut's category if multiple)
@@ -250,7 +257,7 @@ export function KeyboardMap({ onKeySelect, selectedKey, className }: KeyboardMap
           <TooltipContent side="top" className="max-w-xs">
             <div className="space-y-1">
               {shortcuts.map((shortcut) => {
-                const shortcutStr = keyboardShortcuts[shortcut];
+                const shortcutStr = mergedShortcuts[shortcut];
                 const displayShortcut = formatShortcut(shortcutStr, true);
                 return (
                   <div key={shortcut} className="flex items-center gap-2">
@@ -266,7 +273,7 @@ export function KeyboardMap({ onKeySelect, selectedKey, className }: KeyboardMap
                     <kbd className="text-xs font-mono bg-sidebar-accent/30 px-1 rounded">
                       {displayShortcut}
                     </kbd>
-                    {keyboardShortcuts[shortcut] !== DEFAULT_KEYBOARD_SHORTCUTS[shortcut] && (
+                    {mergedShortcuts[shortcut] !== DEFAULT_KEYBOARD_SHORTCUTS[shortcut] && (
                       <span className="text-xs text-yellow-400">(custom)</span>
                     )}
                   </div>
@@ -353,6 +360,12 @@ export function ShortcutReferencePanel({ editable = false }: ShortcutReferencePa
   const [modifiers, setModifiers] = React.useState({ shift: false, cmdCtrl: false, alt: false });
   const [shortcutError, setShortcutError] = React.useState<string | null>(null);
 
+  // Merge with defaults to ensure new shortcuts are always shown
+  const mergedShortcuts = React.useMemo(() => ({
+    ...DEFAULT_KEYBOARD_SHORTCUTS,
+    ...keyboardShortcuts,
+  }), [keyboardShortcuts]);
+
   const groupedShortcuts = React.useMemo(() => {
     const groups: Record<string, Array<{ key: keyof KeyboardShortcuts; label: string; value: string }>> = {
       navigation: [],
@@ -365,13 +378,13 @@ export function ShortcutReferencePanel({ editable = false }: ShortcutReferencePa
         groups[category].push({
           key: shortcut,
           label: SHORTCUT_LABELS[shortcut] ?? shortcut,
-          value: keyboardShortcuts[shortcut],
+          value: mergedShortcuts[shortcut],
         });
       }
     );
 
     return groups;
-  }, [keyboardShortcuts]);
+  }, [mergedShortcuts]);
 
   // Build the full shortcut string from key + modifiers
   const buildShortcutString = React.useCallback((key: string, mods: typeof modifiers) => {
@@ -385,14 +398,14 @@ export function ShortcutReferencePanel({ editable = false }: ShortcutReferencePa
 
   // Check for conflicts with other shortcuts
   const checkConflict = React.useCallback((shortcutStr: string, currentKey: keyof KeyboardShortcuts) => {
-    const conflict = Object.entries(keyboardShortcuts).find(
-      ([k, v]) => k !== currentKey && v.toUpperCase() === shortcutStr.toUpperCase()
+    const conflict = Object.entries(mergedShortcuts).find(
+      ([k, v]) => k !== currentKey && v?.toUpperCase() === shortcutStr.toUpperCase()
     );
     return conflict ? (SHORTCUT_LABELS[conflict[0] as keyof KeyboardShortcuts] ?? conflict[0]) : null;
-  }, [keyboardShortcuts]);
+  }, [mergedShortcuts]);
 
   const handleStartEdit = (key: keyof KeyboardShortcuts) => {
-    const currentValue = keyboardShortcuts[key];
+    const currentValue = mergedShortcuts[key];
     const parsed = parseShortcut(currentValue);
     setEditingShortcut(key);
     setKeyValue(parsed.key);
@@ -495,7 +508,7 @@ export function ShortcutReferencePanel({ editable = false }: ShortcutReferencePa
             </h4>
             <div className="grid grid-cols-2 gap-2">
               {shortcuts.map(({ key, label, value }) => {
-                const isModified = keyboardShortcuts[key] !== DEFAULT_KEYBOARD_SHORTCUTS[key];
+                const isModified = mergedShortcuts[key] !== DEFAULT_KEYBOARD_SHORTCUTS[key];
                 const isEditing = editingShortcut === key;
 
                 return (
