@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(dir \"C:\\Users\\Ben\\Desktop\\appdev\\git\\automaker\\apps\\app\\public\")",
-      "Bash(find:*)"
-    ]
-  }
-}
