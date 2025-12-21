@@ -1,19 +1,18 @@
-
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Loader2, List, FileText, GitBranch } from "lucide-react";
-import { getElectronAPI } from "@/lib/electron";
-import { LogViewer } from "@/components/ui/log-viewer";
-import { GitDiffPanel } from "@/components/ui/git-diff-panel";
-import { TaskProgressPanel } from "@/components/ui/task-progress-panel";
-import { useAppStore } from "@/store/app-store";
-import type { AutoModeEvent } from "@/types/electron";
+} from '@/components/ui/dialog';
+import { Loader2, List, FileText, GitBranch } from 'lucide-react';
+import { getElectronAPI } from '@/lib/electron';
+import { LogViewer } from '@/components/ui/log-viewer';
+import { GitDiffPanel } from '@/components/ui/git-diff-panel';
+import { TaskProgressPanel } from '@/components/ui/task-progress-panel';
+import { useAppStore } from '@/store/app-store';
+import type { AutoModeEvent } from '@/types/electron';
 
 interface AgentOutputModalProps {
   open: boolean;
@@ -26,7 +25,7 @@ interface AgentOutputModalProps {
   onNumberKeyPress?: (key: string) => void;
 }
 
-type ViewMode = "parsed" | "raw" | "changes";
+type ViewMode = 'parsed' | 'raw' | 'changes';
 
 export function AgentOutputModal({
   open,
@@ -36,13 +35,13 @@ export function AgentOutputModal({
   featureStatus,
   onNumberKeyPress,
 }: AgentOutputModalProps) {
-  const [output, setOutput] = useState<string>("");
+  const [output, setOutput] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("parsed");
-  const [projectPath, setProjectPath] = useState<string>("");
+  const [viewMode, setViewMode] = useState<ViewMode>('parsed');
+  const [projectPath, setProjectPath] = useState<string>('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
-  const projectPathRef = useRef<string>("");
+  const projectPathRef = useRef<string>('');
   const useWorktrees = useAppStore((state) => state.useWorktrees);
 
   // Auto-scroll to bottom when output changes
@@ -75,22 +74,19 @@ export function AgentOutputModal({
 
         // Use features API to get agent output
         if (api.features) {
-          const result = await api.features.getAgentOutput(
-            currentProject.path,
-            featureId
-          );
+          const result = await api.features.getAgentOutput(currentProject.path, featureId);
 
           if (result.success) {
-            setOutput(result.content || "");
+            setOutput(result.content || '');
           } else {
-            setOutput("");
+            setOutput('');
           }
         } else {
-          setOutput("");
+          setOutput('');
         }
       } catch (error) {
-        console.error("Failed to load output:", error);
-        setOutput("");
+        console.error('Failed to load output:', error);
+        setOutput('');
       } finally {
         setIsLoading(false);
       }
@@ -108,38 +104,32 @@ export function AgentOutputModal({
 
     const unsubscribe = api.autoMode.onEvent((event) => {
       // Filter events for this specific feature only (skip events without featureId)
-      if ("featureId" in event && event.featureId !== featureId) {
+      if ('featureId' in event && event.featureId !== featureId) {
         return;
       }
 
-      let newContent = "";
+      let newContent = '';
 
       switch (event.type) {
-        case "auto_mode_progress":
-          newContent = event.content || "";
+        case 'auto_mode_progress':
+          newContent = event.content || '';
           break;
-        case "auto_mode_tool":
-          const toolName = event.tool || "Unknown Tool";
-          const toolInput = event.input
-            ? JSON.stringify(event.input, null, 2)
-            : "";
-          newContent = `\n🔧 Tool: ${toolName}\n${
-            toolInput ? `Input: ${toolInput}\n` : ""
-          }`;
+        case 'auto_mode_tool': {
+          const toolName = event.tool || 'Unknown Tool';
+          const toolInput = event.input ? JSON.stringify(event.input, null, 2) : '';
+          newContent = `\n🔧 Tool: ${toolName}\n${toolInput ? `Input: ${toolInput}\n` : ''}`;
           break;
-        case "auto_mode_phase":
+        }
+        case 'auto_mode_phase': {
           const phaseEmoji =
-            event.phase === "planning"
-              ? "📋"
-              : event.phase === "action"
-              ? "⚡"
-              : "✅";
+            event.phase === 'planning' ? '📋' : event.phase === 'action' ? '⚡' : '✅';
           newContent = `\n${phaseEmoji} ${event.message}\n`;
           break;
-        case "auto_mode_error":
+        }
+        case 'auto_mode_error':
           newContent = `\n❌ Error: ${event.error}\n`;
           break;
-        case "auto_mode_ultrathink_preparation":
+        case 'auto_mode_ultrathink_preparation': {
           // Format thinking level preparation information
           let prepContent = `\n🧠 Ultrathink Preparation\n`;
 
@@ -169,66 +159,74 @@ export function AgentOutputModal({
 
           newContent = prepContent;
           break;
-        case "planning_started":
+        }
+        case 'planning_started': {
           // Show when planning mode begins
-          if ("mode" in event && "message" in event) {
+          if ('mode' in event && 'message' in event) {
             const modeLabel =
-              event.mode === "lite"
-                ? "Lite"
-                : event.mode === "spec"
-                ? "Spec"
-                : "Full";
+              event.mode === 'lite' ? 'Lite' : event.mode === 'spec' ? 'Spec' : 'Full';
             newContent = `\n📋 Planning Mode: ${modeLabel}\n${event.message}\n`;
           }
           break;
-        case "plan_approval_required":
+        }
+        case 'plan_approval_required':
           // Show when plan requires approval
-          if ("planningMode" in event) {
+          if ('planningMode' in event) {
             newContent = `\n⏸️ Plan generated - waiting for your approval...\n`;
           }
           break;
-        case "plan_approved":
+        case 'plan_approved':
           // Show when plan is manually approved
-          if ("hasEdits" in event) {
+          if ('hasEdits' in event) {
             newContent = event.hasEdits
               ? `\n✅ Plan approved (with edits) - continuing to implementation...\n`
               : `\n✅ Plan approved - continuing to implementation...\n`;
           }
           break;
-        case "plan_auto_approved":
+        case 'plan_auto_approved':
           // Show when plan is auto-approved
           newContent = `\n✅ Plan auto-approved - continuing to implementation...\n`;
           break;
-        case "plan_revision_requested":
+        case 'plan_revision_requested': {
           // Show when user requests plan revision
-          if ("planVersion" in event) {
-            const revisionEvent = event as Extract<AutoModeEvent, { type: "plan_revision_requested" }>;
+          if ('planVersion' in event) {
+            const revisionEvent = event as Extract<
+              AutoModeEvent,
+              { type: 'plan_revision_requested' }
+            >;
             newContent = `\n🔄 Revising plan based on your feedback (v${revisionEvent.planVersion})...\n`;
           }
           break;
-        case "auto_mode_task_started":
+        }
+        case 'auto_mode_task_started': {
           // Show when a task starts
-          if ("taskId" in event && "taskDescription" in event) {
-            const taskEvent = event as Extract<AutoModeEvent, { type: "auto_mode_task_started" }>;
+          if ('taskId' in event && 'taskDescription' in event) {
+            const taskEvent = event as Extract<AutoModeEvent, { type: 'auto_mode_task_started' }>;
             newContent = `\n▶ Starting ${taskEvent.taskId}: ${taskEvent.taskDescription}\n`;
           }
           break;
-        case "auto_mode_task_complete":
+        }
+        case 'auto_mode_task_complete': {
           // Show task completion progress
-          if ("taskId" in event && "tasksCompleted" in event && "tasksTotal" in event) {
-            const taskEvent = event as Extract<AutoModeEvent, { type: "auto_mode_task_complete" }>;
+          if ('taskId' in event && 'tasksCompleted' in event && 'tasksTotal' in event) {
+            const taskEvent = event as Extract<AutoModeEvent, { type: 'auto_mode_task_complete' }>;
             newContent = `\n✓ ${taskEvent.taskId} completed (${taskEvent.tasksCompleted}/${taskEvent.tasksTotal})\n`;
           }
           break;
-        case "auto_mode_phase_complete":
+        }
+        case 'auto_mode_phase_complete': {
           // Show phase completion for full mode
-          if ("phaseNumber" in event) {
-            const phaseEvent = event as Extract<AutoModeEvent, { type: "auto_mode_phase_complete" }>;
+          if ('phaseNumber' in event) {
+            const phaseEvent = event as Extract<
+              AutoModeEvent,
+              { type: 'auto_mode_phase_complete' }
+            >;
             newContent = `\n🏁 Phase ${phaseEvent.phaseNumber} complete\n`;
           }
           break;
-        case "auto_mode_feature_complete":
-          const emoji = event.passes ? "✅" : "⚠️";
+        }
+        case 'auto_mode_feature_complete': {
+          const emoji = event.passes ? '✅' : '⚠️';
           newContent = `\n${emoji} Task completed: ${event.message}\n`;
 
           // Close the modal when the feature is verified (passes = true)
@@ -239,6 +237,7 @@ export function AgentOutputModal({
             }, 1500);
           }
           break;
+        }
       }
 
       if (newContent) {
@@ -267,20 +266,15 @@ export function AgentOutputModal({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       // Check if a number key (0-9) was pressed without modifiers
-      if (
-        !event.ctrlKey &&
-        !event.altKey &&
-        !event.metaKey &&
-        /^[0-9]$/.test(event.key)
-      ) {
+      if (!event.ctrlKey && !event.altKey && !event.metaKey && /^[0-9]$/.test(event.key)) {
         event.preventDefault();
         onNumberKeyPress(event.key);
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [open, onNumberKeyPress]);
 
@@ -293,19 +287,18 @@ export function AgentOutputModal({
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
-              {featureStatus !== "verified" &&
-                featureStatus !== "waiting_approval" && (
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                )}
+              {featureStatus !== 'verified' && featureStatus !== 'waiting_approval' && (
+                <Loader2 className="w-5 h-5 text-primary animate-spin" />
+              )}
               Agent Output
             </DialogTitle>
             <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
               <button
-                onClick={() => setViewMode("parsed")}
+                onClick={() => setViewMode('parsed')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  viewMode === "parsed"
-                    ? "bg-primary/20 text-primary shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  viewMode === 'parsed'
+                    ? 'bg-primary/20 text-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                 }`}
                 data-testid="view-mode-parsed"
               >
@@ -313,11 +306,11 @@ export function AgentOutputModal({
                 Logs
               </button>
               <button
-                onClick={() => setViewMode("changes")}
+                onClick={() => setViewMode('changes')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  viewMode === "changes"
-                    ? "bg-primary/20 text-primary shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  viewMode === 'changes'
+                    ? 'bg-primary/20 text-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                 }`}
                 data-testid="view-mode-changes"
               >
@@ -325,11 +318,11 @@ export function AgentOutputModal({
                 Changes
               </button>
               <button
-                onClick={() => setViewMode("raw")}
+                onClick={() => setViewMode('raw')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  viewMode === "raw"
-                    ? "bg-primary/20 text-primary shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  viewMode === 'raw'
+                    ? 'bg-primary/20 text-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                 }`}
                 data-testid="view-mode-raw"
               >
@@ -353,7 +346,7 @@ export function AgentOutputModal({
           className="flex-shrink-0 mx-1"
         />
 
-        {viewMode === "changes" ? (
+        {viewMode === 'changes' ? (
           <div className="flex-1 min-h-[400px] max-h-[60vh] overflow-y-auto scrollbar-visible">
             {projectPath ? (
               <GitDiffPanel
@@ -386,19 +379,17 @@ export function AgentOutputModal({
                 <div className="flex items-center justify-center h-full text-muted-foreground">
                   No output yet. The agent will stream output here as it works.
                 </div>
-              ) : viewMode === "parsed" ? (
+              ) : viewMode === 'parsed' ? (
                 <LogViewer output={output} />
               ) : (
-                <div className="whitespace-pre-wrap break-words text-zinc-300">
-                  {output}
-                </div>
+                <div className="whitespace-pre-wrap break-words text-zinc-300">{output}</div>
               )}
             </div>
 
             <div className="text-xs text-muted-foreground text-center flex-shrink-0">
               {autoScrollRef.current
-                ? "Auto-scrolling enabled"
-                : "Scroll to bottom to enable auto-scroll"}
+                ? 'Auto-scrolling enabled'
+                : 'Scroll to bottom to enable auto-scroll'}
             </div>
           </>
         )}

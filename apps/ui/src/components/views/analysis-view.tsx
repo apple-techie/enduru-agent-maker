@@ -1,20 +1,8 @@
-
-import { useCallback, useState } from "react";
-import {
-  useAppStore,
-  FileTreeNode,
-  ProjectAnalysis,
-  Feature,
-} from "@/store/app-store";
-import { getElectronAPI } from "@/lib/electron";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useCallback, useState } from 'react';
+import { useAppStore, FileTreeNode, ProjectAnalysis } from '@/store/app-store';
+import { getElectronAPI } from '@/lib/electron';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Folder,
   FolderOpen,
@@ -30,29 +18,29 @@ import {
   CheckCircle,
   AlertCircle,
   ListChecks,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const IGNORE_PATTERNS = [
-  "node_modules",
-  ".git",
-  ".next",
-  "dist",
-  "build",
-  ".DS_Store",
-  "*.log",
-  ".cache",
-  "coverage",
-  "__pycache__",
-  ".pytest_cache",
-  ".venv",
-  "venv",
-  ".env",
+  'node_modules',
+  '.git',
+  '.next',
+  'dist',
+  'build',
+  '.DS_Store',
+  '*.log',
+  '.cache',
+  'coverage',
+  '__pycache__',
+  '.pytest_cache',
+  '.venv',
+  'venv',
+  '.env',
 ];
 
 const shouldIgnore = (name: string) => {
   return IGNORE_PATTERNS.some((pattern) => {
-    if (pattern.startsWith("*")) {
+    if (pattern.startsWith('*')) {
       return name.endsWith(pattern.slice(1));
     }
     return name === pattern;
@@ -60,8 +48,8 @@ const shouldIgnore = (name: string) => {
 };
 
 const getExtension = (filename: string): string => {
-  const parts = filename.split(".");
-  return parts.length > 1 ? parts.pop() || "" : "";
+  const parts = filename.split('.');
+  return parts.length > 1 ? parts.pop() || '' : '';
 };
 
 export function AnalysisView() {
@@ -74,9 +62,7 @@ export function AnalysisView() {
     clearAnalysis,
   } = useAppStore();
 
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set()
-  );
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isGeneratingSpec, setIsGeneratingSpec] = useState(false);
   const [specGenerated, setSpecGenerated] = useState(false);
   const [specError, setSpecError] = useState<string | null>(null);
@@ -123,7 +109,7 @@ export function AnalysisView() {
 
         return nodes;
       } catch (error) {
-        console.error("Failed to scan directory:", path, error);
+        console.error('Failed to scan directory:', path, error);
         return [];
       }
     },
@@ -148,7 +134,7 @@ export function AnalysisView() {
           if (item.extension) {
             byExt[item.extension] = (byExt[item.extension] || 0) + 1;
           } else {
-            byExt["(no extension)"] = (byExt["(no extension)"] || 0) + 1;
+            byExt['(no extension)'] = (byExt['(no extension)'] || 0) + 1;
           }
         }
       }
@@ -179,17 +165,11 @@ export function AnalysisView() {
 
       setProjectAnalysis(analysis);
     } catch (error) {
-      console.error("Analysis failed:", error);
+      console.error('Analysis failed:', error);
     } finally {
       setIsAnalyzing(false);
     }
-  }, [
-    currentProject,
-    setIsAnalyzing,
-    clearAnalysis,
-    scanDirectory,
-    setProjectAnalysis,
-  ]);
+  }, [currentProject, setIsAnalyzing, clearAnalysis, scanDirectory, setProjectAnalysis]);
 
   // Generate app_spec.txt from analysis
   const generateSpec = useCallback(async () => {
@@ -204,7 +184,7 @@ export function AnalysisView() {
 
       // Read key files to understand the project better
       const fileContents: Record<string, string> = {};
-      const keyFiles = ["package.json", "README.md", "tsconfig.json"];
+      const keyFiles = ['package.json', 'README.md', 'tsconfig.json'];
 
       // Collect file paths from analysis
       const collectFilePaths = (
@@ -217,15 +197,13 @@ export function AnalysisView() {
           if (!node.isDirectory) {
             paths.push(node.path);
           } else if (node.children && currentDepth < maxDepth) {
-            paths.push(
-              ...collectFilePaths(node.children, maxDepth, currentDepth + 1)
-            );
+            paths.push(...collectFilePaths(node.children, maxDepth, currentDepth + 1));
           }
         }
         return paths;
       };
 
-      const allFilePaths = collectFilePaths(projectAnalysis.fileTree);
+      collectFilePaths(projectAnalysis.fileTree);
 
       // Try to read key configuration files
       for (const keyFile of keyFiles) {
@@ -245,40 +223,34 @@ export function AnalysisView() {
         const extensions = projectAnalysis.filesByExtension;
 
         // Check package.json for dependencies
-        if (fileContents["package.json"]) {
+        if (fileContents['package.json']) {
           try {
-            const pkg = JSON.parse(fileContents["package.json"]);
-            if (pkg.dependencies?.react || pkg.dependencies?.["react-dom"])
-              stack.push("React");
-            if (pkg.dependencies?.next) stack.push("Next.js");
-            if (pkg.dependencies?.vue) stack.push("Vue");
-            if (pkg.dependencies?.angular) stack.push("Angular");
-            if (pkg.dependencies?.express) stack.push("Express");
-            if (pkg.dependencies?.electron) stack.push("Electron");
+            const pkg = JSON.parse(fileContents['package.json']);
+            if (pkg.dependencies?.react || pkg.dependencies?.['react-dom']) stack.push('React');
+            if (pkg.dependencies?.next) stack.push('Next.js');
+            if (pkg.dependencies?.vue) stack.push('Vue');
+            if (pkg.dependencies?.angular) stack.push('Angular');
+            if (pkg.dependencies?.express) stack.push('Express');
+            if (pkg.dependencies?.electron) stack.push('Electron');
             if (pkg.devDependencies?.typescript || pkg.dependencies?.typescript)
-              stack.push("TypeScript");
-            if (
-              pkg.devDependencies?.tailwindcss ||
-              pkg.dependencies?.tailwindcss
-            )
-              stack.push("Tailwind CSS");
+              stack.push('TypeScript');
+            if (pkg.devDependencies?.tailwindcss || pkg.dependencies?.tailwindcss)
+              stack.push('Tailwind CSS');
             if (pkg.devDependencies?.playwright || pkg.dependencies?.playwright)
-              stack.push("Playwright");
-            if (pkg.devDependencies?.jest || pkg.dependencies?.jest)
-              stack.push("Jest");
+              stack.push('Playwright');
+            if (pkg.devDependencies?.jest || pkg.dependencies?.jest) stack.push('Jest');
           } catch {
             // Ignore JSON parse errors
           }
         }
 
         // Detect by file extensions
-        if (extensions["ts"] || extensions["tsx"]) stack.push("TypeScript");
-        if (extensions["py"]) stack.push("Python");
-        if (extensions["go"]) stack.push("Go");
-        if (extensions["rs"]) stack.push("Rust");
-        if (extensions["java"]) stack.push("Java");
-        if (extensions["css"] || extensions["scss"] || extensions["sass"])
-          stack.push("CSS/SCSS");
+        if (extensions['ts'] || extensions['tsx']) stack.push('TypeScript');
+        if (extensions['py']) stack.push('Python');
+        if (extensions['go']) stack.push('Go');
+        if (extensions['rs']) stack.push('Rust');
+        if (extensions['java']) stack.push('Java');
+        if (extensions['css'] || extensions['scss'] || extensions['sass']) stack.push('CSS/SCSS');
 
         // Remove duplicates
         return [...new Set(stack)];
@@ -286,9 +258,9 @@ export function AnalysisView() {
 
       // Get project name from package.json or folder name
       const getProjectName = () => {
-        if (fileContents["package.json"]) {
+        if (fileContents['package.json']) {
           try {
-            const pkg = JSON.parse(fileContents["package.json"]);
+            const pkg = JSON.parse(fileContents['package.json']);
             if (pkg.name) return pkg.name;
           } catch {
             // Ignore JSON parse errors
@@ -300,30 +272,30 @@ export function AnalysisView() {
 
       // Get project description from package.json or README
       const getProjectDescription = () => {
-        if (fileContents["package.json"]) {
+        if (fileContents['package.json']) {
           try {
-            const pkg = JSON.parse(fileContents["package.json"]);
+            const pkg = JSON.parse(fileContents['package.json']);
             if (pkg.description) return pkg.description;
           } catch {
             // Ignore JSON parse errors
           }
         }
-        if (fileContents["README.md"]) {
+        if (fileContents['README.md']) {
           // Extract first paragraph from README
-          const lines = fileContents["README.md"].split("\n");
+          const lines = fileContents['README.md'].split('\n');
           for (const line of lines) {
             const trimmed = line.trim();
             if (
               trimmed &&
-              !trimmed.startsWith("#") &&
-              !trimmed.startsWith("!") &&
+              !trimmed.startsWith('#') &&
+              !trimmed.startsWith('!') &&
               trimmed.length > 20
             ) {
               return trimmed.substring(0, 200);
             }
           }
         }
-        return "A software project";
+        return 'A software project';
       };
 
       // Group files by directory for structure analysis
@@ -336,7 +308,7 @@ export function AnalysisView() {
         for (const dir of topLevelDirs) {
           structure.push(`      <directory name="${dir}" />`);
         }
-        return structure.join("\n");
+        return structure.join('\n');
       };
 
       const projectName = getProjectName();
@@ -356,20 +328,15 @@ export function AnalysisView() {
     <languages>
 ${Object.entries(projectAnalysis.filesByExtension)
   .filter(([ext]: [string, number]) =>
-    ["ts", "tsx", "js", "jsx", "py", "go", "rs", "java", "cpp", "c"].includes(
-      ext
-    )
+    ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'rs', 'java', 'cpp', 'c'].includes(ext)
   )
   .sort((a: [string, number], b: [string, number]) => b[1] - a[1])
   .slice(0, 5)
-  .map(
-    ([ext, count]: [string, number]) =>
-      `      <language ext=".${ext}" count="${count}" />`
-  )
-  .join("\n")}
+  .map(([ext, count]: [string, number]) => `      <language ext=".${ext}" count="${count}" />`)
+  .join('\n')}
     </languages>
     <frameworks>
-${techStack.map((tech) => `      <framework>${tech}</framework>`).join("\n")}
+${techStack.map((tech) => `      <framework>${tech}</framework>`).join('\n')}
     </frameworks>
   </technology_stack>
 
@@ -387,11 +354,9 @@ ${Object.entries(projectAnalysis.filesByExtension)
   .slice(0, 10)
   .map(
     ([ext, count]: [string, number]) =>
-      `    <extension type="${
-        ext.startsWith("(") ? ext : "." + ext
-      }" count="${count}" />`
+      `    <extension type="${ext.startsWith('(') ? ext : '.' + ext}" count="${count}" />`
   )
-  .join("\n")}
+  .join('\n')}
   </file_breakdown>
 
   <analyzed_at>${projectAnalysis.analyzedAt}</analyzed_at>
@@ -405,13 +370,11 @@ ${Object.entries(projectAnalysis.filesByExtension)
       if (writeResult.success) {
         setSpecGenerated(true);
       } else {
-        setSpecError(writeResult.error || "Failed to write spec file");
+        setSpecError(writeResult.error || 'Failed to write spec file');
       }
     } catch (error) {
-      console.error("Failed to generate spec:", error);
-      setSpecError(
-        error instanceof Error ? error.message : "Failed to generate spec"
-      );
+      console.error('Failed to generate spec:', error);
+      setSpecError(error instanceof Error ? error.message : 'Failed to generate spec');
     } finally {
       setIsGeneratingSpec(false);
     }
@@ -430,7 +393,7 @@ ${Object.entries(projectAnalysis.filesByExtension)
 
       // Read key files to understand the project
       const fileContents: Record<string, string> = {};
-      const keyFiles = ["package.json", "README.md"];
+      const keyFiles = ['package.json', 'README.md'];
 
       // Try to read key configuration files
       for (const keyFile of keyFiles) {
@@ -481,21 +444,19 @@ ${Object.entries(projectAnalysis.filesByExtension)
 
         // Check for test directories and files
         const hasTests =
-          topLevelDirs.includes("tests") ||
-          topLevelDirs.includes("test") ||
-          topLevelDirs.includes("__tests__") ||
-          allFilePaths.some(
-            (p) => p.includes(".spec.") || p.includes(".test.")
-          );
+          topLevelDirs.includes('tests') ||
+          topLevelDirs.includes('test') ||
+          topLevelDirs.includes('__tests__') ||
+          allFilePaths.some((p) => p.includes('.spec.') || p.includes('.test.'));
 
         if (hasTests) {
           detectedFeatures.push({
-            category: "Testing",
-            description: "Automated test suite",
+            category: 'Testing',
+            description: 'Automated test suite',
             steps: [
-              "Step 1: Tests directory exists",
-              "Step 2: Test files are present",
-              "Step 3: Run test suite",
+              'Step 1: Tests directory exists',
+              'Step 2: Test files are present',
+              'Step 3: Run test suite',
             ],
             passes: true,
           });
@@ -503,50 +464,50 @@ ${Object.entries(projectAnalysis.filesByExtension)
 
         // Check for components directory (UI components)
         const hasComponents =
-          topLevelDirs.includes("components") ||
-          allFilePaths.some((p) => p.toLowerCase().includes("/components/"));
+          topLevelDirs.includes('components') ||
+          allFilePaths.some((p) => p.toLowerCase().includes('/components/'));
 
         if (hasComponents) {
           detectedFeatures.push({
-            category: "UI/Design",
-            description: "Component-based UI architecture",
+            category: 'UI/Design',
+            description: 'Component-based UI architecture',
             steps: [
-              "Step 1: Components directory exists",
-              "Step 2: UI components are defined",
-              "Step 3: Components are reusable",
+              'Step 1: Components directory exists',
+              'Step 2: UI components are defined',
+              'Step 3: Components are reusable',
             ],
             passes: true,
           });
         }
 
         // Check for src directory (organized source code)
-        if (topLevelDirs.includes("src")) {
+        if (topLevelDirs.includes('src')) {
           detectedFeatures.push({
-            category: "Project Structure",
-            description: "Organized source code structure",
+            category: 'Project Structure',
+            description: 'Organized source code structure',
             steps: [
-              "Step 1: Source directory exists",
-              "Step 2: Code is properly organized",
-              "Step 3: Follows best practices",
+              'Step 1: Source directory exists',
+              'Step 2: Code is properly organized',
+              'Step 3: Follows best practices',
             ],
             passes: true,
           });
         }
 
         // Check package.json for dependencies and detect features
-        if (fileContents["package.json"]) {
+        if (fileContents['package.json']) {
           try {
-            const pkg = JSON.parse(fileContents["package.json"]);
+            const pkg = JSON.parse(fileContents['package.json']);
 
             // React/Next.js app detection
-            if (pkg.dependencies?.react || pkg.dependencies?.["react-dom"]) {
+            if (pkg.dependencies?.react || pkg.dependencies?.['react-dom']) {
               detectedFeatures.push({
-                category: "Frontend",
-                description: "React-based user interface",
+                category: 'Frontend',
+                description: 'React-based user interface',
                 steps: [
-                  "Step 1: React is installed",
-                  "Step 2: Components render correctly",
-                  "Step 3: State management works",
+                  'Step 1: React is installed',
+                  'Step 2: Components render correctly',
+                  'Step 3: State management works',
                 ],
                 passes: true,
               });
@@ -554,12 +515,12 @@ ${Object.entries(projectAnalysis.filesByExtension)
 
             if (pkg.dependencies?.next) {
               detectedFeatures.push({
-                category: "Framework",
-                description: "Next.js framework integration",
+                category: 'Framework',
+                description: 'Next.js framework integration',
                 steps: [
-                  "Step 1: Next.js is configured",
-                  "Step 2: Pages/routes are defined",
-                  "Step 3: Server-side rendering works",
+                  'Step 1: Next.js is configured',
+                  'Step 2: Pages/routes are defined',
+                  'Step 3: Server-side rendering works',
                 ],
                 passes: true,
               });
@@ -569,33 +530,30 @@ ${Object.entries(projectAnalysis.filesByExtension)
             if (
               pkg.devDependencies?.typescript ||
               pkg.dependencies?.typescript ||
-              extensions["ts"] ||
-              extensions["tsx"]
+              extensions['ts'] ||
+              extensions['tsx']
             ) {
               detectedFeatures.push({
-                category: "Developer Experience",
-                description: "TypeScript type safety",
+                category: 'Developer Experience',
+                description: 'TypeScript type safety',
                 steps: [
-                  "Step 1: TypeScript is configured",
-                  "Step 2: Type definitions exist",
-                  "Step 3: Code compiles without errors",
+                  'Step 1: TypeScript is configured',
+                  'Step 2: Type definitions exist',
+                  'Step 3: Code compiles without errors',
                 ],
                 passes: true,
               });
             }
 
             // Tailwind CSS
-            if (
-              pkg.devDependencies?.tailwindcss ||
-              pkg.dependencies?.tailwindcss
-            ) {
+            if (pkg.devDependencies?.tailwindcss || pkg.dependencies?.tailwindcss) {
               detectedFeatures.push({
-                category: "UI/Design",
-                description: "Tailwind CSS styling",
+                category: 'UI/Design',
+                description: 'Tailwind CSS styling',
                 steps: [
-                  "Step 1: Tailwind is configured",
-                  "Step 2: Styles are applied",
-                  "Step 3: Responsive design works",
+                  'Step 1: Tailwind is configured',
+                  'Step 2: Styles are applied',
+                  'Step 3: Responsive design works',
                 ],
                 passes: true,
               });
@@ -604,12 +562,12 @@ ${Object.entries(projectAnalysis.filesByExtension)
             // ESLint/Prettier (code quality)
             if (pkg.devDependencies?.eslint || pkg.devDependencies?.prettier) {
               detectedFeatures.push({
-                category: "Developer Experience",
-                description: "Code quality tools",
+                category: 'Developer Experience',
+                description: 'Code quality tools',
                 steps: [
-                  "Step 1: Linter is configured",
-                  "Step 2: Code passes lint checks",
-                  "Step 3: Formatting is consistent",
+                  'Step 1: Linter is configured',
+                  'Step 2: Code passes lint checks',
+                  'Step 3: Formatting is consistent',
                 ],
                 passes: true,
               });
@@ -618,29 +576,26 @@ ${Object.entries(projectAnalysis.filesByExtension)
             // Electron (desktop app)
             if (pkg.dependencies?.electron || pkg.devDependencies?.electron) {
               detectedFeatures.push({
-                category: "Platform",
-                description: "Electron desktop application",
+                category: 'Platform',
+                description: 'Electron desktop application',
                 steps: [
-                  "Step 1: Electron is configured",
-                  "Step 2: Main process runs",
-                  "Step 3: Renderer process loads",
+                  'Step 1: Electron is configured',
+                  'Step 2: Main process runs',
+                  'Step 3: Renderer process loads',
                 ],
                 passes: true,
               });
             }
 
             // Playwright testing
-            if (
-              pkg.devDependencies?.playwright ||
-              pkg.devDependencies?.["@playwright/test"]
-            ) {
+            if (pkg.devDependencies?.playwright || pkg.devDependencies?.['@playwright/test']) {
               detectedFeatures.push({
-                category: "Testing",
-                description: "Playwright end-to-end testing",
+                category: 'Testing',
+                description: 'Playwright end-to-end testing',
                 steps: [
-                  "Step 1: Playwright is configured",
-                  "Step 2: E2E tests are defined",
-                  "Step 3: Tests pass successfully",
+                  'Step 1: Playwright is configured',
+                  'Step 2: E2E tests are defined',
+                  'Step 3: Tests pass successfully',
                 ],
                 passes: true,
               });
@@ -651,17 +606,14 @@ ${Object.entries(projectAnalysis.filesByExtension)
         }
 
         // Check for documentation
-        if (
-          topLevelFiles.includes("readme.md") ||
-          topLevelDirs.includes("docs")
-        ) {
+        if (topLevelFiles.includes('readme.md') || topLevelDirs.includes('docs')) {
           detectedFeatures.push({
-            category: "Documentation",
-            description: "Project documentation",
+            category: 'Documentation',
+            description: 'Project documentation',
             steps: [
-              "Step 1: README exists",
-              "Step 2: Documentation is comprehensive",
-              "Step 3: Setup instructions are clear",
+              'Step 1: README exists',
+              'Step 2: Documentation is comprehensive',
+              'Step 3: Setup instructions are clear',
             ],
             passes: true,
           });
@@ -669,18 +621,18 @@ ${Object.entries(projectAnalysis.filesByExtension)
 
         // Check for CI/CD configuration
         const hasCICD =
-          topLevelDirs.includes(".github") ||
-          topLevelFiles.includes(".gitlab-ci.yml") ||
-          topLevelFiles.includes(".travis.yml");
+          topLevelDirs.includes('.github') ||
+          topLevelFiles.includes('.gitlab-ci.yml') ||
+          topLevelFiles.includes('.travis.yml');
 
         if (hasCICD) {
           detectedFeatures.push({
-            category: "DevOps",
-            description: "CI/CD pipeline configuration",
+            category: 'DevOps',
+            description: 'CI/CD pipeline configuration',
             steps: [
-              "Step 1: CI config exists",
-              "Step 2: Pipeline runs on push",
-              "Step 3: Automated checks pass",
+              'Step 1: CI config exists',
+              'Step 2: Pipeline runs on push',
+              'Step 3: Automated checks pass',
             ],
             passes: true,
           });
@@ -688,20 +640,17 @@ ${Object.entries(projectAnalysis.filesByExtension)
 
         // Check for API routes (Next.js API or Express)
         const hasAPIRoutes = allFilePaths.some(
-          (p) =>
-            p.includes("/api/") ||
-            p.includes("/routes/") ||
-            p.includes("/endpoints/")
+          (p) => p.includes('/api/') || p.includes('/routes/') || p.includes('/endpoints/')
         );
 
         if (hasAPIRoutes) {
           detectedFeatures.push({
-            category: "Backend",
-            description: "API endpoints",
+            category: 'Backend',
+            description: 'API endpoints',
             steps: [
-              "Step 1: API routes are defined",
-              "Step 2: Endpoints respond correctly",
-              "Step 3: Error handling is implemented",
+              'Step 1: API routes are defined',
+              'Step 2: Endpoints respond correctly',
+              'Step 3: Error handling is implemented',
             ],
             passes: true,
           });
@@ -710,37 +659,34 @@ ${Object.entries(projectAnalysis.filesByExtension)
         // Check for state management
         const hasStateManagement = allFilePaths.some(
           (p) =>
-            p.includes("/store/") ||
-            p.includes("/stores/") ||
-            p.includes("/redux/") ||
-            p.includes("/context/")
+            p.includes('/store/') ||
+            p.includes('/stores/') ||
+            p.includes('/redux/') ||
+            p.includes('/context/')
         );
 
         if (hasStateManagement) {
           detectedFeatures.push({
-            category: "Architecture",
-            description: "State management system",
+            category: 'Architecture',
+            description: 'State management system',
             steps: [
-              "Step 1: Store is configured",
-              "Step 2: State updates correctly",
-              "Step 3: Components access state",
+              'Step 1: Store is configured',
+              'Step 2: State updates correctly',
+              'Step 3: Components access state',
             ],
             passes: true,
           });
         }
 
         // Check for configuration files
-        if (
-          topLevelFiles.includes("tsconfig.json") ||
-          topLevelFiles.includes("package.json")
-        ) {
+        if (topLevelFiles.includes('tsconfig.json') || topLevelFiles.includes('package.json')) {
           detectedFeatures.push({
-            category: "Configuration",
-            description: "Project configuration files",
+            category: 'Configuration',
+            description: 'Project configuration files',
             steps: [
-              "Step 1: Config files exist",
-              "Step 2: Configuration is valid",
-              "Step 3: Build process works",
+              'Step 1: Config files exist',
+              'Step 2: Configuration is valid',
+              'Step 3: Build process works',
             ],
             passes: true,
           });
@@ -752,12 +698,12 @@ ${Object.entries(projectAnalysis.filesByExtension)
       // If no features were detected, add a default feature
       if (detectedFeatures.length === 0) {
         detectedFeatures.push({
-          category: "Core",
-          description: "Basic project structure",
+          category: 'Core',
+          description: 'Basic project structure',
           steps: [
-            "Step 1: Project directory exists",
-            "Step 2: Files are present",
-            "Step 3: Project can be loaded",
+            'Step 1: Project directory exists',
+            'Step 2: Files are present',
+            'Step 3: Project can be loaded',
           ],
           passes: true,
         });
@@ -765,7 +711,7 @@ ${Object.entries(projectAnalysis.filesByExtension)
 
       // Create each feature using the features API
       if (!api.features) {
-        throw new Error("Features API not available");
+        throw new Error('Features API not available');
       }
 
       for (const detectedFeature of detectedFeatures) {
@@ -774,17 +720,15 @@ ${Object.entries(projectAnalysis.filesByExtension)
           category: detectedFeature.category,
           description: detectedFeature.description,
           steps: detectedFeature.steps,
-          status: "backlog",
+          status: 'backlog',
         });
       }
 
       setFeatureListGenerated(true);
     } catch (error) {
-      console.error("Failed to generate feature list:", error);
+      console.error('Failed to generate feature list:', error);
       setFeatureListError(
-        error instanceof Error
-          ? error.message
-          : "Failed to generate feature list"
+        error instanceof Error ? error.message : 'Failed to generate feature list'
       );
     } finally {
       setIsGeneratingFeatureList(false);
@@ -810,7 +754,7 @@ ${Object.entries(projectAnalysis.filesByExtension)
       <div key={node.path} data-testid={`analysis-node-${node.name}`}>
         <div
           className={cn(
-            "flex items-center gap-2 py-1 px-2 rounded cursor-pointer hover:bg-muted/50 text-sm"
+            'flex items-center gap-2 py-1 px-2 rounded cursor-pointer hover:bg-muted/50 text-sm'
           )}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
           onClick={() => {
@@ -840,17 +784,11 @@ ${Object.entries(projectAnalysis.filesByExtension)
           )}
           <span className="truncate">{node.name}</span>
           {node.extension && (
-            <span className="text-xs text-muted-foreground ml-auto">
-              .{node.extension}
-            </span>
+            <span className="text-xs text-muted-foreground ml-auto">.{node.extension}</span>
           )}
         </div>
         {node.isDirectory && isExpanded && node.children && (
-          <div>
-            {node.children.map((child: FileTreeNode) =>
-              renderNode(child, depth + 1)
-            )}
-          </div>
+          <div>{node.children.map((child: FileTreeNode) => renderNode(child, depth + 1))}</div>
         )}
       </div>
     );
@@ -868,26 +806,17 @@ ${Object.entries(projectAnalysis.filesByExtension)
   }
 
   return (
-    <div
-      className="flex-1 flex flex-col overflow-hidden content-bg"
-      data-testid="analysis-view"
-    >
+    <div className="flex-1 flex flex-col overflow-hidden content-bg" data-testid="analysis-view">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-white/10 bg-zinc-950/50 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <Search className="w-5 h-5 text-muted-foreground" />
           <div>
             <h1 className="text-xl font-bold">Project Analysis</h1>
-            <p className="text-sm text-muted-foreground">
-              {currentProject.name}
-            </p>
+            <p className="text-sm text-muted-foreground">{currentProject.name}</p>
           </div>
         </div>
-        <Button
-          onClick={runAnalysis}
-          disabled={isAnalyzing}
-          data-testid="analyze-project-button"
-        >
+        <Button onClick={runAnalysis} disabled={isAnalyzing} data-testid="analyze-project-button">
           {isAnalyzing ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -909,13 +838,10 @@ ${Object.entries(projectAnalysis.filesByExtension)
             <Search className="w-16 h-16 text-muted-foreground/50 mb-4" />
             <h2 className="text-lg font-semibold mb-2">No Analysis Yet</h2>
             <p className="text-sm text-muted-foreground mb-4 max-w-md">
-              Click &quot;Analyze Project&quot; to scan your codebase and get
-              insights about its structure.
+              Click &quot;Analyze Project&quot; to scan your codebase and get insights about its
+              structure.
             </p>
-            <Button
-              onClick={runAnalysis}
-              data-testid="analyze-project-button-empty"
-            >
+            <Button onClick={runAnalysis} data-testid="analyze-project-button-empty">
               <Search className="w-4 h-4 mr-2" />
               Start Analysis
             </Button>
@@ -936,27 +862,19 @@ ${Object.entries(projectAnalysis.filesByExtension)
                     Statistics
                   </CardTitle>
                   <CardDescription>
-                    Analyzed{" "}
-                    {new Date(projectAnalysis.analyzedAt).toLocaleString()}
+                    Analyzed {new Date(projectAnalysis.analyzedAt).toLocaleString()}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Total Files
-                    </span>
+                    <span className="text-sm text-muted-foreground">Total Files</span>
                     <span className="font-medium" data-testid="total-files">
                       {projectAnalysis.totalFiles}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Total Directories
-                    </span>
-                    <span
-                      className="font-medium"
-                      data-testid="total-directories"
-                    >
+                    <span className="text-sm text-muted-foreground">Total Directories</span>
+                    <span className="font-medium" data-testid="total-directories">
                       {projectAnalysis.totalDirectories}
                     </span>
                   </div>
@@ -973,15 +891,12 @@ ${Object.entries(projectAnalysis.filesByExtension)
                 <CardContent>
                   <div className="space-y-2">
                     {Object.entries(projectAnalysis.filesByExtension)
-                      .sort(
-                        (a: [string, number], b: [string, number]) =>
-                          b[1] - a[1]
-                      )
+                      .sort((a: [string, number], b: [string, number]) => b[1] - a[1])
                       .slice(0, 15)
                       .map(([ext, count]: [string, number]) => (
                         <div key={ext} className="flex justify-between text-sm">
                           <span className="text-muted-foreground font-mono">
-                            {ext.startsWith("(") ? ext : `.${ext}`}
+                            {ext.startsWith('(') ? ext : `.${ext}`}
                           </span>
                           <span>{count}</span>
                         </div>
@@ -997,14 +912,12 @@ ${Object.entries(projectAnalysis.filesByExtension)
                     <FileText className="w-4 h-4" />
                     Generate Specification
                   </CardTitle>
-                  <CardDescription>
-                    Create app_spec.txt from analysis
-                  </CardDescription>
+                  <CardDescription>Create app_spec.txt from analysis</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Generate a project specification file based on the analyzed
-                    codebase structure and detected technologies.
+                    Generate a project specification file based on the analyzed codebase structure
+                    and detected technologies.
                   </p>
                   <Button
                     onClick={generateSpec}
@@ -1052,15 +965,12 @@ ${Object.entries(projectAnalysis.filesByExtension)
                     <ListChecks className="w-4 h-4" />
                     Generate Feature List
                   </CardTitle>
-                  <CardDescription>
-                    Create features from analysis
-                  </CardDescription>
+                  <CardDescription>Create features from analysis</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Automatically detect and generate a feature list based on
-                    the analyzed codebase structure, dependencies, and project
-                    configuration.
+                    Automatically detect and generate a feature list based on the analyzed codebase
+                    structure, dependencies, and project configuration.
                   </p>
                   <Button
                     onClick={generateFeatureList}
@@ -1110,18 +1020,13 @@ ${Object.entries(projectAnalysis.filesByExtension)
                   File Tree
                 </CardTitle>
                 <CardDescription>
-                  {projectAnalysis.totalFiles} files in{" "}
-                  {projectAnalysis.totalDirectories} directories
+                  {projectAnalysis.totalFiles} files in {projectAnalysis.totalDirectories}{' '}
+                  directories
                 </CardDescription>
               </CardHeader>
-              <CardContent
-                className="p-0 overflow-y-auto h-full"
-                data-testid="analysis-file-tree"
-              >
+              <CardContent className="p-0 overflow-y-auto h-full" data-testid="analysis-file-tree">
                 <div className="p-2">
-                  {projectAnalysis.fileTree.map((node: FileTreeNode) =>
-                    renderNode(node)
-                  )}
+                  {projectAnalysis.fileTree.map((node: FileTreeNode) => renderNode(node))}
                 </div>
               </CardContent>
             </Card>

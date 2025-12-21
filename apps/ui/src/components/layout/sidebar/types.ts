@@ -1,4 +1,5 @@
 import type { Project } from '@/lib/electron';
+import type React from 'react';
 
 export interface NavSection {
   label?: string;
@@ -28,9 +29,4 @@ export interface ThemeMenuItemProps {
   };
   onPreviewEnter: (value: string) => void;
   onPreviewLeave: (e: React.PointerEvent) => void;
-}
-
-export interface BugReportButtonProps {
-  sidebarExpanded: boolean;
-  onClick: () => void;
 }

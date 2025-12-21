@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
-import { Feature, ThinkingLevel, useAppStore } from "@/store/app-store";
+import { useEffect, useState } from 'react';
+import { Feature, ThinkingLevel, useAppStore } from '@/store/app-store';
 import {
   AgentTaskInfo,
   parseAgentContext,
   formatModelName,
   DEFAULT_MODEL,
-} from "@/lib/agent-context-parser";
-import { cn } from "@/lib/utils";
+} from '@/lib/agent-context-parser';
+import { cn } from '@/lib/utils';
 import {
   Cpu,
   Brain,
@@ -17,21 +17,21 @@ import {
   Circle,
   Loader2,
   Wrench,
-} from "lucide-react";
-import { getElectronAPI } from "@/lib/electron";
-import { SummaryDialog } from "./summary-dialog";
+} from 'lucide-react';
+import { getElectronAPI } from '@/lib/electron';
+import { SummaryDialog } from './summary-dialog';
 
 /**
  * Formats thinking level for compact display
  */
 function formatThinkingLevel(level: ThinkingLevel | undefined): string {
-  if (!level || level === "none") return "";
+  if (!level || level === 'none') return '';
   const labels: Record<ThinkingLevel, string> = {
-    none: "",
-    low: "Low",
-    medium: "Med",
-    high: "High",
-    ultrathink: "Ultra",
+    none: '',
+    low: 'Low',
+    medium: 'Med',
+    high: 'High',
+    ultrathink: 'Ultra',
   };
   return labels[level];
 }
@@ -53,7 +53,7 @@ export function AgentInfoPanel({
   const [agentInfo, setAgentInfo] = useState<AgentTaskInfo | null>(null);
   const [isSummaryDialogOpen, setIsSummaryDialogOpen] = useState(false);
 
-  const showAgentInfo = kanbanCardDetailLevel === "detailed";
+  const showAgentInfo = kanbanCardDetailLevel === 'detailed';
 
   useEffect(() => {
     const loadContext = async () => {
@@ -63,22 +63,18 @@ export function AgentInfoPanel({
         return;
       }
 
-      if (feature.status === "backlog") {
+      if (feature.status === 'backlog') {
         setAgentInfo(null);
         return;
       }
 
       try {
         const api = getElectronAPI();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, no-undef
         const currentProject = (window as any).__currentProject;
         if (!currentProject?.path) return;
 
         if (api.features) {
-          const result = await api.features.getAgentOutput(
-            currentProject.path,
-            feature.id
-          );
+          const result = await api.features.getAgentOutput(currentProject.path, feature.id);
 
           if (result.success && result.content) {
             const info = parseAgentContext(result.content);
@@ -94,68 +90,61 @@ export function AgentInfoPanel({
           }
         }
       } catch {
-        // eslint-disable-next-line no-undef
-        console.debug("[KanbanCard] No context file for feature:", feature.id);
+        console.debug('[KanbanCard] No context file for feature:', feature.id);
       }
     };
 
     loadContext();
 
     if (isCurrentAutoTask) {
-      // eslint-disable-next-line no-undef
       const interval = setInterval(loadContext, 3000);
       return () => {
-        // eslint-disable-next-line no-undef
         clearInterval(interval);
       };
     }
   }, [feature.id, feature.status, contextContent, isCurrentAutoTask]);
   // Model/Preset Info for Backlog Cards
-  if (showAgentInfo && feature.status === "backlog") {
+  if (showAgentInfo && feature.status === 'backlog') {
     return (
       <div className="mb-3 space-y-2 overflow-hidden">
         <div className="flex items-center gap-2 text-[11px] flex-wrap">
           <div className="flex items-center gap-1 text-[var(--status-info)]">
             <Cpu className="w-3 h-3" />
-            <span className="font-medium">
-              {formatModelName(feature.model ?? DEFAULT_MODEL)}
-            </span>
+            <span className="font-medium">{formatModelName(feature.model ?? DEFAULT_MODEL)}</span>
           </div>
-          {feature.thinkingLevel && feature.thinkingLevel !== "none" && (
+          {feature.thinkingLevel && feature.thinkingLevel !== 'none' ? (
             <div className="flex items-center gap-1 text-purple-400">
               <Brain className="w-3 h-3" />
               <span className="font-medium">
-                {formatThinkingLevel(feature.thinkingLevel)}
+                {formatThinkingLevel(feature.thinkingLevel as ThinkingLevel)}
               </span>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     );
   }
 
   // Agent Info Panel for non-backlog cards
-  if (showAgentInfo && feature.status !== "backlog" && agentInfo) {
+  if (showAgentInfo && feature.status !== 'backlog' && agentInfo) {
     return (
       <div className="mb-3 space-y-2 overflow-hidden">
         {/* Model & Phase */}
         <div className="flex items-center gap-2 text-[11px] flex-wrap">
           <div className="flex items-center gap-1 text-[var(--status-info)]">
             <Cpu className="w-3 h-3" />
-            <span className="font-medium">
-              {formatModelName(feature.model ?? DEFAULT_MODEL)}
-            </span>
+            <span className="font-medium">{formatModelName(feature.model ?? DEFAULT_MODEL)}</span>
           </div>
           {agentInfo.currentPhase && (
             <div
               className={cn(
-                "px-1.5 py-0.5 rounded-md text-[10px] font-medium",
-                agentInfo.currentPhase === "planning" &&
-                  "bg-[var(--status-info-bg)] text-[var(--status-info)]",
-                agentInfo.currentPhase === "action" &&
-                  "bg-[var(--status-warning-bg)] text-[var(--status-warning)]",
-                agentInfo.currentPhase === "verification" &&
-                  "bg-[var(--status-success-bg)] text-[var(--status-success)]"
+                'px-1.5 py-0.5 rounded-md text-[10px] font-medium',
+                agentInfo.currentPhase === 'planning' &&
+                  'bg-[var(--status-info-bg)] text-[var(--status-info)]',
+                agentInfo.currentPhase === 'action' &&
+                  'bg-[var(--status-warning-bg)] text-[var(--status-warning)]',
+                agentInfo.currentPhase === 'verification' &&
+                  'bg-[var(--status-success-bg)] text-[var(--status-success)]'
               )}
             >
               {agentInfo.currentPhase}
@@ -169,31 +158,26 @@ export function AgentInfoPanel({
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
               <ListTodo className="w-3 h-3" />
               <span>
-                {agentInfo.todos.filter((t) => t.status === "completed").length}
-                /{agentInfo.todos.length} tasks
+                {agentInfo.todos.filter((t) => t.status === 'completed').length}/
+                {agentInfo.todos.length} tasks
               </span>
             </div>
             <div className="space-y-0.5 max-h-16 overflow-y-auto">
               {agentInfo.todos.slice(0, 3).map((todo, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-1.5 text-[10px]"
-                >
-                  {todo.status === "completed" ? (
+                <div key={idx} className="flex items-center gap-1.5 text-[10px]">
+                  {todo.status === 'completed' ? (
                     <CheckCircle2 className="w-2.5 h-2.5 text-[var(--status-success)] shrink-0" />
-                  ) : todo.status === "in_progress" ? (
+                  ) : todo.status === 'in_progress' ? (
                     <Loader2 className="w-2.5 h-2.5 text-[var(--status-warning)] animate-spin shrink-0" />
                   ) : (
                     <Circle className="w-2.5 h-2.5 text-muted-foreground/50 shrink-0" />
                   )}
                   <span
                     className={cn(
-                      "break-words hyphens-auto line-clamp-2 leading-relaxed",
-                      todo.status === "completed" &&
-                        "text-muted-foreground/60 line-through",
-                      todo.status === "in_progress" &&
-                        "text-[var(--status-warning)]",
-                      todo.status === "pending" && "text-muted-foreground/80"
+                      'break-words hyphens-auto line-clamp-2 leading-relaxed',
+                      todo.status === 'completed' && 'text-muted-foreground/60 line-through',
+                      todo.status === 'in_progress' && 'text-[var(--status-warning)]',
+                      todo.status === 'pending' && 'text-muted-foreground/80'
                     )}
                   >
                     {todo.content}
@@ -210,8 +194,7 @@ export function AgentInfoPanel({
         )}
 
         {/* Summary for waiting_approval and verified */}
-        {(feature.status === "waiting_approval" ||
-          feature.status === "verified") && (
+        {(feature.status === 'waiting_approval' || feature.status === 'verified') && (
           <>
             {(feature.summary || summary || agentInfo.summary) && (
               <div className="space-y-1.5 pt-2 border-t border-border/30 overflow-hidden">
@@ -238,27 +221,20 @@ export function AgentInfoPanel({
                 </p>
               </div>
             )}
-            {!feature.summary &&
-              !summary &&
-              !agentInfo.summary &&
-              agentInfo.toolCallCount > 0 && (
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60 pt-2 border-t border-border/30">
+            {!feature.summary && !summary && !agentInfo.summary && agentInfo.toolCallCount > 0 && (
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60 pt-2 border-t border-border/30">
+                <span className="flex items-center gap-1">
+                  <Wrench className="w-2.5 h-2.5" />
+                  {agentInfo.toolCallCount} tool calls
+                </span>
+                {agentInfo.todos.length > 0 && (
                   <span className="flex items-center gap-1">
-                    <Wrench className="w-2.5 h-2.5" />
-                    {agentInfo.toolCallCount} tool calls
+                    <CheckCircle2 className="w-2.5 h-2.5 text-[var(--status-success)]" />
+                    {agentInfo.todos.filter((t) => t.status === 'completed').length} tasks done
                   </span>
-                  {agentInfo.todos.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 className="w-2.5 h-2.5 text-[var(--status-success)]" />
-                      {
-                        agentInfo.todos.filter((t) => t.status === "completed")
-                          .length
-                      }{" "}
-                      tasks done
-                    </span>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

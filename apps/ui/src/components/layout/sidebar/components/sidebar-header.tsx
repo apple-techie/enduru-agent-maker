@@ -6,10 +6,9 @@ import { BugReportButton } from './bug-report-button';
 interface SidebarHeaderProps {
   sidebarOpen: boolean;
   navigate: (opts: NavigateOptions) => void;
-  handleBugReportClick: () => void;
 }
 
-export function SidebarHeader({ sidebarOpen, navigate, handleBugReportClick }: SidebarHeaderProps) {
+export function SidebarHeader({ sidebarOpen, navigate }: SidebarHeaderProps) {
   return (
     <>
       {/* Logo */}
@@ -26,13 +25,13 @@ export function SidebarHeader({ sidebarOpen, navigate, handleBugReportClick }: S
       >
         <AutomakerLogo sidebarOpen={sidebarOpen} navigate={navigate} />
         {/* Bug Report Button - Inside logo container when expanded */}
-        {sidebarOpen && <BugReportButton sidebarExpanded onClick={handleBugReportClick} />}
+        {sidebarOpen && <BugReportButton sidebarExpanded />}
       </div>
 
       {/* Bug Report Button - Collapsed sidebar version */}
       {!sidebarOpen && (
         <div className="px-3 mt-1.5 flex justify-center">
-          <BugReportButton sidebarExpanded={false} onClick={handleBugReportClick} />
+          <BugReportButton sidebarExpanded={false} />
         </div>
       )}
     </>

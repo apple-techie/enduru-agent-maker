@@ -1,11 +1,21 @@
 import { Bug } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { BugReportButtonProps } from '../types';
+import { useCallback } from 'react';
+import { getElectronAPI } from '@/lib/electron';
 
-export function BugReportButton({ sidebarExpanded, onClick }: BugReportButtonProps) {
+interface BugReportButtonProps {
+  sidebarExpanded: boolean;
+}
+
+export function BugReportButton({ sidebarExpanded }: BugReportButtonProps) {
+  const handleBugReportClick = useCallback(() => {
+    const api = getElectronAPI();
+    api.openExternalLink('https://github.com/AutoMaker-Org/automaker/issues');
+  }, []);
+
   return (
     <button
-      onClick={onClick}
+      onClick={handleBugReportClick}
       className={cn(
         'titlebar-no-drag px-3 py-2.5 rounded-xl',
         'text-muted-foreground hover:text-foreground hover:bg-accent/80',

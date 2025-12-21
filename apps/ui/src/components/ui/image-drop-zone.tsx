@@ -1,8 +1,7 @@
-
-import React, { useState, useRef, useCallback } from "react";
-import { cn } from "@/lib/utils";
-import { ImageIcon, X, Upload } from "lucide-react";
-import type { ImageAttachment } from "@/store/app-store";
+import React, { useState, useRef, useCallback } from 'react';
+import { cn } from '@/lib/utils';
+import { ImageIcon, X, Upload } from 'lucide-react';
+import type { ImageAttachment } from '@/store/app-store';
 
 interface ImageDropZoneProps {
   onImagesSelected: (images: ImageAttachment[]) => void;
@@ -35,88 +34,100 @@ export function ImageDropZone({
   const selectedImages = images ?? internalImages;
 
   // Update images - for controlled mode, just call the callback; for uncontrolled, also update internal state
-  const updateImages = useCallback((newImages: ImageAttachment[]) => {
-    if (images === undefined) {
-      setInternalImages(newImages);
-    }
-    onImagesSelected(newImages);
-  }, [images, onImagesSelected]);
+  const updateImages = useCallback(
+    (newImages: ImageAttachment[]) => {
+      if (images === undefined) {
+        setInternalImages(newImages);
+      }
+      onImagesSelected(newImages);
+    },
+    [images, onImagesSelected]
+  );
 
-  const processFiles = useCallback(async (files: FileList) => {
-    if (disabled || isProcessing) return;
+  const processFiles = useCallback(
+    async (files: FileList) => {
+      if (disabled || isProcessing) return;
 
-    setIsProcessing(true);
-    const newImages: ImageAttachment[] = [];
-    const errors: string[] = [];
+      setIsProcessing(true);
+      const newImages: ImageAttachment[] = [];
+      const errors: string[] = [];
 
-    for (const file of Array.from(files)) {
-      // Validate file type
-      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-        errors.push(`${file.name}: Unsupported file type. Please use JPG, PNG, GIF, or WebP.`);
-        continue;
+      for (const file of Array.from(files)) {
+        // Validate file type
+        if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+          errors.push(`${file.name}: Unsupported file type. Please use JPG, PNG, GIF, or WebP.`);
+          continue;
+        }
+
+        // Validate file size
+        if (file.size > maxFileSize) {
+          const maxSizeMB = maxFileSize / (1024 * 1024);
+          errors.push(`${file.name}: File too large. Maximum size is ${maxSizeMB}MB.`);
+          continue;
+        }
+
+        // Check if we've reached max files
+        if (newImages.length + selectedImages.length >= maxFiles) {
+          errors.push(`Maximum ${maxFiles} images allowed.`);
+          break;
+        }
+
+        try {
+          const base64 = await fileToBase64(file);
+          const imageAttachment: ImageAttachment = {
+            id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            data: base64,
+            mimeType: file.type,
+            filename: file.name,
+            size: file.size,
+          };
+          newImages.push(imageAttachment);
+        } catch {
+          errors.push(`${file.name}: Failed to process image.`);
+        }
       }
 
-      // Validate file size
-      if (file.size > maxFileSize) {
-        const maxSizeMB = maxFileSize / (1024 * 1024);
-        errors.push(`${file.name}: File too large. Maximum size is ${maxSizeMB}MB.`);
-        continue;
+      if (errors.length > 0) {
+        console.warn('Image upload errors:', errors);
+        // You could show these errors to the user via a toast or notification
       }
 
-      // Check if we've reached max files
-      if (newImages.length + selectedImages.length >= maxFiles) {
-        errors.push(`Maximum ${maxFiles} images allowed.`);
-        break;
+      if (newImages.length > 0) {
+        const allImages = [...selectedImages, ...newImages];
+        updateImages(allImages);
       }
 
-      try {
-        const base64 = await fileToBase64(file);
-        const imageAttachment: ImageAttachment = {
-          id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          data: base64,
-          mimeType: file.type,
-          filename: file.name,
-          size: file.size,
-        };
-        newImages.push(imageAttachment);
-      } catch (error) {
-        errors.push(`${file.name}: Failed to process image.`);
+      setIsProcessing(false);
+    },
+    [disabled, isProcessing, maxFiles, maxFileSize, selectedImages, updateImages]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+
+      if (disabled) return;
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        processFiles(files);
       }
-    }
+    },
+    [disabled, processFiles]
+  );
 
-    if (errors.length > 0) {
-      console.warn('Image upload errors:', errors);
-      // You could show these errors to the user via a toast or notification
-    }
-
-    if (newImages.length > 0) {
-      const allImages = [...selectedImages, ...newImages];
-      updateImages(allImages);
-    }
-
-    setIsProcessing(false);
-  }, [disabled, isProcessing, maxFiles, maxFileSize, selectedImages, updateImages]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-
-    if (disabled) return;
-
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      processFiles(files);
-    }
-  }, [disabled, processFiles]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!disabled) {
-      setIsDragOver(true);
-    }
-  }, [disabled]);
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!disabled) {
+        setIsDragOver(true);
+      }
+    },
+    [disabled]
+  );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -124,16 +135,19 @@ export function ImageDropZone({
     setIsDragOver(false);
   }, []);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      processFiles(files);
-    }
-    // Reset the input so the same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, [processFiles]);
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        processFiles(files);
+      }
+      // Reset the input so the same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [processFiles]
+  );
 
   const handleBrowseClick = useCallback(() => {
     if (!disabled && fileInputRef.current) {
@@ -141,17 +155,20 @@ export function ImageDropZone({
     }
   }, [disabled]);
 
-  const removeImage = useCallback((imageId: string) => {
-    const updated = selectedImages.filter(img => img.id !== imageId);
-    updateImages(updated);
-  }, [selectedImages, updateImages]);
+  const removeImage = useCallback(
+    (imageId: string) => {
+      const updated = selectedImages.filter((img) => img.id !== imageId);
+      updateImages(updated);
+    },
+    [selectedImages, updateImages]
+  );
 
   const clearAllImages = useCallback(() => {
     updateImages([]);
   }, [updateImages]);
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn('relative', className)}>
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -168,22 +185,22 @@ export function ImageDropZone({
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={cn(
-          "relative rounded-lg border-2 border-dashed transition-all duration-200",
-          {
-            "border-blue-400 bg-blue-50 dark:bg-blue-950/20": isDragOver && !disabled,
-            "border-muted-foreground/25": !isDragOver && !disabled,
-            "border-muted-foreground/10 opacity-50 cursor-not-allowed": disabled,
-            "hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/10": !disabled && !isDragOver,
-          }
-        )}
+        className={cn('relative rounded-lg border-2 border-dashed transition-all duration-200', {
+          'border-blue-400 bg-blue-50 dark:bg-blue-950/20': isDragOver && !disabled,
+          'border-muted-foreground/25': !isDragOver && !disabled,
+          'border-muted-foreground/10 opacity-50 cursor-not-allowed': disabled,
+          'hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/10':
+            !disabled && !isDragOver,
+        })}
       >
         {children || (
           <div className="flex flex-col items-center justify-center p-6 text-center">
-            <div className={cn(
-              "rounded-full p-3 mb-4",
-              isDragOver && !disabled ? "bg-blue-100 dark:bg-blue-900/30" : "bg-muted"
-            )}>
+            <div
+              className={cn(
+                'rounded-full p-3 mb-4',
+                isDragOver && !disabled ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-muted'
+              )}
+            >
               {isProcessing ? (
                 <Upload className="h-6 w-6 animate-spin text-muted-foreground" />
               ) : (
@@ -191,10 +208,13 @@ export function ImageDropZone({
               )}
             </div>
             <p className="text-sm font-medium text-foreground mb-1">
-              {isDragOver && !disabled ? "Drop your images here" : "Drag images here or click to browse"}
+              {isDragOver && !disabled
+                ? 'Drop your images here'
+                : 'Drag images here or click to browse'}
             </p>
             <p className="text-xs text-muted-foreground">
-              {maxFiles > 1 ? `Up to ${maxFiles} images` : "1 image"}, max {Math.round(maxFileSize / (1024 * 1024))}MB each
+              {maxFiles > 1 ? `Up to ${maxFiles} images` : '1 image'}, max{' '}
+              {Math.round(maxFileSize / (1024 * 1024))}MB each
             </p>
             {!disabled && (
               <button
@@ -231,7 +251,7 @@ export function ImageDropZone({
                 className="relative group rounded-md border border-muted bg-muted/50 p-2 flex items-center space-x-2"
               >
                 {/* Image thumbnail */}
-                <div className="w-8 h-8 rounded overflow-hidden bg-muted flex-shrink-0">
+                <div className="w-8 h-8 rounded overflow-hidden bg-muted shrink-0">
                   <img
                     src={image.data}
                     alt={image.filename}
@@ -240,13 +260,9 @@ export function ImageDropZone({
                 </div>
                 {/* Image info */}
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-foreground truncate">
-                    {image.filename}
-                  </p>
+                  <p className="text-xs font-medium text-foreground truncate">{image.filename}</p>
                   {image.size !== undefined && (
-                    <p className="text-xs text-muted-foreground">
-                      {formatFileSize(image.size)}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{formatFileSize(image.size)}</p>
                   )}
                 </div>
                 {/* Remove button */}

@@ -1,6 +1,5 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Terminal, ArrowRight } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
 
 interface WelcomeStepProps {
   onNext: () => void;
@@ -10,17 +9,14 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
   return (
     <div className="text-center space-y-6">
       <div className="flex items-center justify-center mx-auto">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="Automaker Logo" className="w-24 h-24" />
       </div>
 
       <div>
-        <h2 className="text-3xl font-bold text-foreground mb-3">
-          Welcome to Automaker
-        </h2>
+        <h2 className="text-3xl font-bold text-foreground mb-3">Welcome to Automaker</h2>
         <p className="text-muted-foreground max-w-md mx-auto">
-          To get started, we&apos;ll need to verify either claude code cli is
-          installed or you have Anthropic api keys
+          To get started, we&apos;ll need to verify either claude code cli is installed or you have
+          Anthropic api keys
         </p>
       </div>
 

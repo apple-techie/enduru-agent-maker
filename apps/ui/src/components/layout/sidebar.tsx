@@ -155,12 +155,6 @@ export function Sidebar() {
     setNewProjectPath,
   });
 
-  // Handle bug report button click
-  const handleBugReportClick = useCallback(() => {
-    const api = getElectronAPI();
-    api.openExternalLink('https://github.com/AutoMaker-Org/automaker/issues');
-  }, []);
-
   /**
    * Opens the system folder selection dialog and initializes the selected project.
    * Used by both the 'O' keyboard shortcut and the folder icon button.
@@ -273,11 +267,7 @@ export function Sidebar() {
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <SidebarHeader
-          sidebarOpen={sidebarOpen}
-          navigate={navigate}
-          handleBugReportClick={handleBugReportClick}
-        />
+        <SidebarHeader sidebarOpen={sidebarOpen} navigate={navigate} />
 
         {/* Project Actions - Moved above project selector */}
         {sidebarOpen && (

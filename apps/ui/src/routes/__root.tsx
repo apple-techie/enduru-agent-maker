@@ -14,7 +14,7 @@ import { ThemeOption, themeOptions } from '@/config/theme-options';
 
 function RootLayoutContent() {
   const location = useLocation();
-  const { setIpcConnected, theme, currentProject, previewTheme, getEffectiveTheme } = useAppStore();
+  const { setIpcConnected, currentProject, getEffectiveTheme } = useAppStore();
   const { setupComplete } = useSetupStore();
   const navigate = useNavigate();
   const [isMounted, setIsMounted] = useState(false);

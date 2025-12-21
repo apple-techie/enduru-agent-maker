@@ -1,10 +1,10 @@
 /**
  * File Picker Utility for Web Browsers
- * 
+ *
  * Provides cross-platform file and directory selection using:
  * 1. HTML5 webkitdirectory input - primary method (works on Windows)
  * 2. File System Access API (showDirectoryPicker) - fallback for modern browsers
- * 
+ *
  * Note: Browsers don't expose absolute file paths for security reasons.
  * This implementation extracts directory information and may require
  * user confirmation or server-side path resolution.
@@ -22,7 +22,7 @@ export interface DirectoryPickerResult {
 /**
  * Opens a directory picker dialog
  * @returns Promise resolving to directory information, or null if canceled
- * 
+ *
  * Note: Browsers don't expose absolute file paths for security reasons.
  * This function returns directory structure information that the server
  * can use to locate the actual directory path.
@@ -31,10 +31,10 @@ export async function openDirectoryPicker(): Promise<DirectoryPickerResult | nul
   // Use webkitdirectory (works on Windows and all modern browsers)
   return new Promise<DirectoryPickerResult | null>((resolve) => {
     let resolved = false;
-    const input = document.createElement("input");
-    input.type = "file";
+    const input = document.createElement('input');
+    input.type = 'file';
     input.webkitdirectory = true;
-    input.style.display = "none";
+    input.style.display = 'none';
 
     const cleanup = () => {
       if (input.parentNode) {
@@ -58,62 +58,59 @@ export async function openDirectoryPicker(): Promise<DirectoryPickerResult | nul
       }
     };
 
-    input.addEventListener("change", (e) => {
+    input.addEventListener('change', (e) => {
       changeEventFired = true;
       if (focusTimeout) {
         clearTimeout(focusTimeout);
         focusTimeout = null;
       }
-      
-      console.log("[FilePicker] Change event fired");
+
+      console.log('[FilePicker] Change event fired');
       const files = input.files;
-      console.log("[FilePicker] Files selected:", files?.length || 0);
-      
+      console.log('[FilePicker] Files selected:', files?.length || 0);
+
       if (!files || files.length === 0) {
-        console.log("[FilePicker] No files selected");
+        console.log('[FilePicker] No files selected');
         safeResolve(null);
         return;
       }
 
       const firstFile = files[0];
-      console.log("[FilePicker] First file:", {
+      console.log('[FilePicker] First file:', {
         name: firstFile.name,
         webkitRelativePath: firstFile.webkitRelativePath,
-        // @ts-expect-error
+        // @ts-expect-error - path property is non-standard but available in some browsers
         path: firstFile.path,
       });
 
       // Extract directory name from webkitRelativePath
       // webkitRelativePath format: "directoryName/subfolder/file.txt" or "directoryName/file.txt"
-      let directoryName = "Selected Directory";
-      
+      let directoryName = 'Selected Directory';
+
       // Method 1: Try to get absolute path from File object (non-standard, works in Electron/Chromium)
       // @ts-expect-error - path property is non-standard but available in some browsers
       if (firstFile.path) {
-        // @ts-expect-error
+        // @ts-expect-error - path property is non-standard but available in some browsers
         const filePath = firstFile.path as string;
-        console.log("[FilePicker] Found file.path:", filePath);
+        console.log('[FilePicker] Found file.path:', filePath);
         // Extract directory path (remove filename)
-        const lastSeparator = Math.max(
-          filePath.lastIndexOf("\\"),
-          filePath.lastIndexOf("/")
-        );
+        const lastSeparator = Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/'));
         if (lastSeparator > 0) {
           const absolutePath = filePath.substring(0, lastSeparator);
-          console.log("[FilePicker] Found absolute path:", absolutePath);
+          console.log('[FilePicker] Found absolute path:', absolutePath);
           // Return as directory name for now - server can validate it directly
           directoryName = absolutePath;
         }
       }
 
       // Method 2: Extract directory name from webkitRelativePath
-      if (directoryName === "Selected Directory" && firstFile.webkitRelativePath) {
+      if (directoryName === 'Selected Directory' && firstFile.webkitRelativePath) {
         const relativePath = firstFile.webkitRelativePath;
-        console.log("[FilePicker] Using webkitRelativePath:", relativePath);
-        const pathParts = relativePath.split("/");
+        console.log('[FilePicker] Using webkitRelativePath:', relativePath);
+        const pathParts = relativePath.split('/');
         if (pathParts.length > 0) {
           directoryName = pathParts[0]; // Top-level directory name
-          console.log("[FilePicker] Extracted directory name:", directoryName);
+          console.log('[FilePicker] Extracted directory name:', directoryName);
         }
       }
 
@@ -130,7 +127,7 @@ export async function openDirectoryPicker(): Promise<DirectoryPickerResult | nul
         }
       }
 
-      console.log("[FilePicker] Directory info:", {
+      console.log('[FilePicker] Directory info:', {
         directoryName,
         fileCount: files.length,
         sampleFiles: sampleFiles.slice(0, 5), // Log first 5
@@ -150,7 +147,7 @@ export async function openDirectoryPicker(): Promise<DirectoryPickerResult | nul
       // Only resolve as canceled if change event hasn't fired after a delay
       focusTimeout = setTimeout(() => {
         if (!resolved && !changeEventFired && (!input.files || input.files.length === 0)) {
-          console.log("[FilePicker] Dialog canceled (no files after focus and no change event)");
+          console.log('[FilePicker] Dialog canceled (no files after focus and no change event)');
           safeResolve(null);
         }
       }, 2000); // Increased timeout for Windows - give it time
@@ -158,33 +155,37 @@ export async function openDirectoryPicker(): Promise<DirectoryPickerResult | nul
 
     // Add to DOM temporarily
     document.body.appendChild(input);
-    console.log("[FilePicker] Opening directory picker...");
+    console.log('[FilePicker] Opening directory picker...');
 
     // Try to show picker programmatically
-    if ("showPicker" in HTMLInputElement.prototype) {
+    if ('showPicker' in HTMLInputElement.prototype) {
       try {
         (input as any).showPicker();
-        console.log("[FilePicker] Using showPicker()");
+        console.log('[FilePicker] Using showPicker()');
       } catch (error) {
-        console.log("[FilePicker] showPicker() failed, using click()", error);
+        console.log('[FilePicker] showPicker() failed, using click()', error);
         input.click();
       }
     } else {
-      console.log("[FilePicker] Using click()");
+      console.log('[FilePicker] Using click()');
       input.click();
     }
 
     // Set up cancellation detection with longer delay
     // Only add focus listener if we're not already resolved
-    window.addEventListener("focus", handleFocus, { once: true });
-    
+    window.addEventListener('focus', handleFocus, { once: true });
+
     // Also handle blur as a cancellation signal (but with delay)
-    window.addEventListener("blur", () => {
-      // Dialog opened, wait for it to close
-      setTimeout(() => {
-        window.addEventListener("focus", handleFocus, { once: true });
-      }, 100);
-    }, { once: true });
+    window.addEventListener(
+      'blur',
+      () => {
+        // Dialog opened, wait for it to close
+        setTimeout(() => {
+          window.addEventListener('focus', handleFocus, { once: true });
+        }, 100);
+      },
+      { once: true }
+    );
   });
 }
 
@@ -193,21 +194,19 @@ export async function openDirectoryPicker(): Promise<DirectoryPickerResult | nul
  * @param options Optional configuration (multiple files, file types, etc.)
  * @returns Promise resolving to selected file path(s), or null if canceled
  */
-export async function openFilePicker(
-  options?: {
-    multiple?: boolean;
-    accept?: string;
-  }
-): Promise<string | string[] | null> {
+export async function openFilePicker(options?: {
+  multiple?: boolean;
+  accept?: string;
+}): Promise<string | string[] | null> {
   // Use standard file input (works on all browsers including Windows)
   return new Promise<string | string[] | null>((resolve) => {
-    const input = document.createElement("input");
-    input.type = "file";
+    const input = document.createElement('input');
+    input.type = 'file';
     input.multiple = options?.multiple ?? false;
     if (options?.accept) {
       input.accept = options.accept;
     }
-    input.style.display = "none";
+    input.style.display = 'none';
 
     const cleanup = () => {
       if (input.parentNode) {
@@ -215,7 +214,7 @@ export async function openFilePicker(
       }
     };
 
-    input.addEventListener("change", () => {
+    input.addEventListener('change', () => {
       const files = input.files;
       if (!files || files.length === 0) {
         cleanup();
@@ -228,7 +227,7 @@ export async function openFilePicker(
         // Try to get path from File object (non-standard, but available in some browsers)
         // @ts-expect-error - path property is non-standard
         if (file.path) {
-          // @ts-expect-error
+          // @ts-expect-error - path property is non-standard but available in some browsers
           return file.path as string;
         }
         // Fallback to filename (server will need to resolve)
@@ -262,7 +261,7 @@ export async function openFilePicker(
     // Try to show picker programmatically
     // Note: showPicker() is available in modern browsers but TypeScript types it as void
     // In practice, it may return a Promise in some implementations, but we'll handle errors via try/catch
-    if ("showPicker" in HTMLInputElement.prototype) {
+    if ('showPicker' in HTMLInputElement.prototype) {
       try {
         (input as any).showPicker();
       } catch {
@@ -274,6 +273,6 @@ export async function openFilePicker(
     }
 
     // Set up cancellation detection
-    window.addEventListener("focus", handleFocus, { once: true });
+    window.addEventListener('focus', handleFocus, { once: true });
   });
 }

@@ -20,41 +20,35 @@ import type {
   AutoModeEvent,
   SuggestionsEvent,
   SpecRegenerationEvent,
-  FeatureSuggestion,
   SuggestionType,
-} from "./electron";
-import type { Message, SessionListItem } from "@/types/electron";
-import type { Feature, ClaudeUsageResponse } from "@/store/app-store";
-import type {
-  WorktreeAPI,
-  GitAPI,
-  ModelDefinition,
-  ProviderStatus,
-} from "@/types/electron";
-import { getGlobalFileBrowser } from "@/contexts/file-browser-context";
+} from './electron';
+import type { Message, SessionListItem } from '@/types/electron';
+import type { Feature, ClaudeUsageResponse } from '@/store/app-store';
+import type { WorktreeAPI, GitAPI, ModelDefinition, ProviderStatus } from '@/types/electron';
+import { getGlobalFileBrowser } from '@/contexts/file-browser-context';
 
 // Server URL - configurable via environment variable
 const getServerUrl = (): string => {
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     const envUrl = import.meta.env.VITE_SERVER_URL;
     if (envUrl) return envUrl;
   }
-  return "http://localhost:3008";
+  return 'http://localhost:3008';
 };
 
 // Get API key from environment variable
 const getApiKey = (): string | null => {
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     return import.meta.env.VITE_AUTOMAKER_API_KEY || null;
   }
   return null;
 };
 
 type EventType =
-  | "agent:stream"
-  | "auto-mode:event"
-  | "suggestions:event"
-  | "spec-regeneration:event";
+  | 'agent:stream'
+  | 'auto-mode:event'
+  | 'suggestions:event'
+  | 'spec-regeneration:event';
 
 type EventCallback = (payload: unknown) => void;
 
@@ -80,21 +74,18 @@ export class HttpApiClient implements ElectronAPI {
   }
 
   private connectWebSocket(): void {
-    if (
-      this.isConnecting ||
-      (this.ws && this.ws.readyState === WebSocket.OPEN)
-    ) {
+    if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
       return;
     }
 
     this.isConnecting = true;
 
     try {
-      const wsUrl = this.serverUrl.replace(/^http/, "ws") + "/api/events";
+      const wsUrl = this.serverUrl.replace(/^http/, 'ws') + '/api/events';
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log("[HttpApiClient] WebSocket connected");
+        console.log('[HttpApiClient] WebSocket connected');
         this.isConnecting = false;
         if (this.reconnectTimer) {
           clearTimeout(this.reconnectTimer);
@@ -110,15 +101,12 @@ export class HttpApiClient implements ElectronAPI {
             callbacks.forEach((cb) => cb(data.payload));
           }
         } catch (error) {
-          console.error(
-            "[HttpApiClient] Failed to parse WebSocket message:",
-            error
-          );
+          console.error('[HttpApiClient] Failed to parse WebSocket message:', error);
         }
       };
 
       this.ws.onclose = () => {
-        console.log("[HttpApiClient] WebSocket disconnected");
+        console.log('[HttpApiClient] WebSocket disconnected');
         this.isConnecting = false;
         this.ws = null;
         // Attempt to reconnect after 5 seconds
@@ -131,19 +119,16 @@ export class HttpApiClient implements ElectronAPI {
       };
 
       this.ws.onerror = (error) => {
-        console.error("[HttpApiClient] WebSocket error:", error);
+        console.error('[HttpApiClient] WebSocket error:', error);
         this.isConnecting = false;
       };
     } catch (error) {
-      console.error("[HttpApiClient] Failed to create WebSocket:", error);
+      console.error('[HttpApiClient] Failed to create WebSocket:', error);
       this.isConnecting = false;
     }
   }
 
-  private subscribeToEvent(
-    type: EventType,
-    callback: EventCallback
-  ): () => void {
+  private subscribeToEvent(type: EventType, callback: EventCallback): () => void {
     if (!this.eventCallbacks.has(type)) {
       this.eventCallbacks.set(type, new Set());
     }
@@ -162,18 +147,18 @@ export class HttpApiClient implements ElectronAPI {
 
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     };
     const apiKey = getApiKey();
     if (apiKey) {
-      headers["X-API-Key"] = apiKey;
+      headers['X-API-Key'] = apiKey;
     }
     return headers;
   }
 
   private async post<T>(endpoint: string, body?: unknown): Promise<T> {
     const response = await fetch(`${this.serverUrl}${endpoint}`, {
-      method: "POST",
+      method: 'POST',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -188,7 +173,7 @@ export class HttpApiClient implements ElectronAPI {
 
   private async put<T>(endpoint: string, body?: unknown): Promise<T> {
     const response = await fetch(`${this.serverUrl}${endpoint}`, {
-      method: "PUT",
+      method: 'PUT',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -197,7 +182,7 @@ export class HttpApiClient implements ElectronAPI {
 
   private async httpDelete<T>(endpoint: string): Promise<T> {
     const response = await fetch(`${this.serverUrl}${endpoint}`, {
-      method: "DELETE",
+      method: 'DELETE',
       headers: this.getHeaders(),
     });
     return response.json();
@@ -205,15 +190,13 @@ export class HttpApiClient implements ElectronAPI {
 
   // Basic operations
   async ping(): Promise<string> {
-    const result = await this.get<{ status: string }>("/api/health");
-    return result.status === "ok" ? "pong" : "error";
+    const result = await this.get<{ status: string }>('/api/health');
+    return result.status === 'ok' ? 'pong' : 'error';
   }
 
-  async openExternalLink(
-    url: string
-  ): Promise<{ success: boolean; error?: string }> {
+  async openExternalLink(url: string): Promise<{ success: boolean; error?: string }> {
     // Open in new tab
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(url, '_blank', 'noopener,noreferrer');
     return { success: true };
   }
 
@@ -222,7 +205,7 @@ export class HttpApiClient implements ElectronAPI {
     const fileBrowser = getGlobalFileBrowser();
 
     if (!fileBrowser) {
-      console.error("File browser not initialized");
+      console.error('File browser not initialized');
       return { canceled: true, filePaths: [] };
     }
 
@@ -237,21 +220,21 @@ export class HttpApiClient implements ElectronAPI {
       success: boolean;
       path?: string;
       error?: string;
-    }>("/api/fs/validate-path", { filePath: path });
+    }>('/api/fs/validate-path', { filePath: path });
 
     if (result.success && result.path) {
       return { canceled: false, filePaths: [result.path] };
     }
 
-    console.error("Invalid directory:", result.error);
+    console.error('Invalid directory:', result.error);
     return { canceled: true, filePaths: [] };
   }
 
-  async openFile(options?: object): Promise<DialogResult> {
+  async openFile(_options?: object): Promise<DialogResult> {
     const fileBrowser = getGlobalFileBrowser();
 
     if (!fileBrowser) {
-      console.error("File browser not initialized");
+      console.error('File browser not initialized');
       return { canceled: true, filePaths: [] };
     }
 
@@ -262,50 +245,48 @@ export class HttpApiClient implements ElectronAPI {
       return { canceled: true, filePaths: [] };
     }
 
-    const result = await this.post<{ success: boolean; exists: boolean }>(
-      "/api/fs/exists",
-      { filePath: path }
-    );
+    const result = await this.post<{ success: boolean; exists: boolean }>('/api/fs/exists', {
+      filePath: path,
+    });
 
     if (result.success && result.exists) {
       return { canceled: false, filePaths: [path] };
     }
 
-    console.error("File not found");
+    console.error('File not found');
     return { canceled: true, filePaths: [] };
   }
 
   // File system operations
   async readFile(filePath: string): Promise<FileResult> {
-    return this.post("/api/fs/read", { filePath });
+    return this.post('/api/fs/read', { filePath });
   }
 
   async writeFile(filePath: string, content: string): Promise<WriteResult> {
-    return this.post("/api/fs/write", { filePath, content });
+    return this.post('/api/fs/write', { filePath, content });
   }
 
   async mkdir(dirPath: string): Promise<WriteResult> {
-    return this.post("/api/fs/mkdir", { dirPath });
+    return this.post('/api/fs/mkdir', { dirPath });
   }
 
   async readdir(dirPath: string): Promise<ReaddirResult> {
-    return this.post("/api/fs/readdir", { dirPath });
+    return this.post('/api/fs/readdir', { dirPath });
   }
 
   async exists(filePath: string): Promise<boolean> {
-    const result = await this.post<{ success: boolean; exists: boolean }>(
-      "/api/fs/exists",
-      { filePath }
-    );
+    const result = await this.post<{ success: boolean; exists: boolean }>('/api/fs/exists', {
+      filePath,
+    });
     return result.exists;
   }
 
   async stat(filePath: string): Promise<StatResult> {
-    return this.post("/api/fs/stat", { filePath });
+    return this.post('/api/fs/stat', { filePath });
   }
 
   async deleteFile(filePath: string): Promise<WriteResult> {
-    return this.post("/api/fs/delete", { filePath });
+    return this.post('/api/fs/delete', { filePath });
   }
 
   async trashItem(filePath: string): Promise<WriteResult> {
@@ -315,11 +296,9 @@ export class HttpApiClient implements ElectronAPI {
 
   async getPath(name: string): Promise<string> {
     // Server provides data directory
-    if (name === "userData") {
-      const result = await this.get<{ dataDir: string }>(
-        "/api/health/detailed"
-      );
-      return result.dataDir || "/data";
+    if (name === 'userData') {
+      const result = await this.get<{ dataDir: string }>('/api/health/detailed');
+      return result.dataDir || '/data';
     }
     return `/data/${name}`;
   }
@@ -330,7 +309,7 @@ export class HttpApiClient implements ElectronAPI {
     mimeType: string,
     projectPath?: string
   ): Promise<SaveImageResult> {
-    return this.post("/api/fs/save-image", {
+    return this.post('/api/fs/save-image', {
       data,
       filename,
       mimeType,
@@ -344,7 +323,7 @@ export class HttpApiClient implements ElectronAPI {
     mimeType: string,
     projectPath: string
   ): Promise<{ success: boolean; path?: string; error?: string }> {
-    return this.post("/api/fs/save-board-background", {
+    return this.post('/api/fs/save-board-background', {
       data,
       filename,
       mimeType,
@@ -352,10 +331,8 @@ export class HttpApiClient implements ElectronAPI {
     });
   }
 
-  async deleteBoardBackground(
-    projectPath: string
-  ): Promise<{ success: boolean; error?: string }> {
-    return this.post("/api/fs/delete-board-background", { projectPath });
+  async deleteBoardBackground(projectPath: string): Promise<{ success: boolean; error?: string }> {
+    return this.post('/api/fs/delete-board-background', { projectPath });
   }
 
   // CLI checks - server-side
@@ -374,7 +351,7 @@ export class HttpApiClient implements ElectronAPI {
     };
     error?: string;
   }> {
-    return this.get("/api/setup/claude-status");
+    return this.get('/api/setup/claude-status');
   }
 
   // Model API
@@ -384,14 +361,14 @@ export class HttpApiClient implements ElectronAPI {
       models?: ModelDefinition[];
       error?: string;
     }> => {
-      return this.get("/api/models/available");
+      return this.get('/api/models/available');
     },
     checkProviders: async (): Promise<{
       success: boolean;
       providers?: Record<string, ProviderStatus>;
       error?: string;
     }> => {
-      return this.get("/api/models/providers");
+      return this.get('/api/models/providers');
     },
   };
 
@@ -417,13 +394,13 @@ export class HttpApiClient implements ElectronAPI {
         hasRecentActivity?: boolean;
       };
       error?: string;
-    }> => this.get("/api/setup/claude-status"),
+    }> => this.get('/api/setup/claude-status'),
 
     installClaude: (): Promise<{
       success: boolean;
       message?: string;
       error?: string;
-    }> => this.post("/api/setup/install-claude"),
+    }> => this.post('/api/setup/install-claude'),
 
     authClaude: (): Promise<{
       success: boolean;
@@ -434,7 +411,7 @@ export class HttpApiClient implements ElectronAPI {
       error?: string;
       message?: string;
       output?: string;
-    }> => this.post("/api/setup/auth-claude"),
+    }> => this.post('/api/setup/auth-claude'),
 
     storeApiKey: (
       provider: string,
@@ -442,7 +419,7 @@ export class HttpApiClient implements ElectronAPI {
     ): Promise<{
       success: boolean;
       error?: string;
-    }> => this.post("/api/setup/store-api-key", { provider, apiKey }),
+    }> => this.post('/api/setup/store-api-key', { provider, apiKey }),
 
     deleteApiKey: (
       provider: string
@@ -450,13 +427,13 @@ export class HttpApiClient implements ElectronAPI {
       success: boolean;
       error?: string;
       message?: string;
-    }> => this.post("/api/setup/delete-api-key", { provider }),
+    }> => this.post('/api/setup/delete-api-key', { provider }),
 
     getApiKeys: (): Promise<{
       success: boolean;
       hasAnthropicKey: boolean;
       hasGoogleKey: boolean;
-    }> => this.get("/api/setup/api-keys"),
+    }> => this.get('/api/setup/api-keys'),
 
     getPlatform: (): Promise<{
       success: boolean;
@@ -466,15 +443,15 @@ export class HttpApiClient implements ElectronAPI {
       isWindows: boolean;
       isMac: boolean;
       isLinux: boolean;
-    }> => this.get("/api/setup/platform"),
+    }> => this.get('/api/setup/platform'),
 
     verifyClaudeAuth: (
-      authMethod?: "cli" | "api_key"
+      authMethod?: 'cli' | 'api_key'
     ): Promise<{
       success: boolean;
       authenticated: boolean;
       error?: string;
-    }> => this.post("/api/setup/verify-claude-auth", { authMethod }),
+    }> => this.post('/api/setup/verify-claude-auth', { authMethod }),
 
     getGhStatus: (): Promise<{
       success: boolean;
@@ -484,76 +461,65 @@ export class HttpApiClient implements ElectronAPI {
       path: string | null;
       user: string | null;
       error?: string;
-    }> => this.get("/api/setup/gh-status"),
+    }> => this.get('/api/setup/gh-status'),
 
     onInstallProgress: (callback: (progress: unknown) => void) => {
-      return this.subscribeToEvent("agent:stream", callback);
+      return this.subscribeToEvent('agent:stream', callback);
     },
 
     onAuthProgress: (callback: (progress: unknown) => void) => {
-      return this.subscribeToEvent("agent:stream", callback);
+      return this.subscribeToEvent('agent:stream', callback);
     },
   };
 
   // Features API
   features: FeaturesAPI = {
-    getAll: (projectPath: string) =>
-      this.post("/api/features/list", { projectPath }),
+    getAll: (projectPath: string) => this.post('/api/features/list', { projectPath }),
     get: (projectPath: string, featureId: string) =>
-      this.post("/api/features/get", { projectPath, featureId }),
+      this.post('/api/features/get', { projectPath, featureId }),
     create: (projectPath: string, feature: Feature) =>
-      this.post("/api/features/create", { projectPath, feature }),
-    update: (
-      projectPath: string,
-      featureId: string,
-      updates: Partial<Feature>
-    ) => this.post("/api/features/update", { projectPath, featureId, updates }),
+      this.post('/api/features/create', { projectPath, feature }),
+    update: (projectPath: string, featureId: string, updates: Partial<Feature>) =>
+      this.post('/api/features/update', { projectPath, featureId, updates }),
     delete: (projectPath: string, featureId: string) =>
-      this.post("/api/features/delete", { projectPath, featureId }),
+      this.post('/api/features/delete', { projectPath, featureId }),
     getAgentOutput: (projectPath: string, featureId: string) =>
-      this.post("/api/features/agent-output", { projectPath, featureId }),
+      this.post('/api/features/agent-output', { projectPath, featureId }),
     generateTitle: (description: string) =>
-      this.post("/api/features/generate-title", { description }),
+      this.post('/api/features/generate-title', { description }),
   };
 
   // Auto Mode API
   autoMode: AutoModeAPI = {
     start: (projectPath: string, maxConcurrency?: number) =>
-      this.post("/api/auto-mode/start", { projectPath, maxConcurrency }),
-    stop: (projectPath: string) =>
-      this.post("/api/auto-mode/stop", { projectPath }),
-    stopFeature: (featureId: string) =>
-      this.post("/api/auto-mode/stop-feature", { featureId }),
-    status: (projectPath?: string) =>
-      this.post("/api/auto-mode/status", { projectPath }),
+      this.post('/api/auto-mode/start', { projectPath, maxConcurrency }),
+    stop: (projectPath: string) => this.post('/api/auto-mode/stop', { projectPath }),
+    stopFeature: (featureId: string) => this.post('/api/auto-mode/stop-feature', { featureId }),
+    status: (projectPath?: string) => this.post('/api/auto-mode/status', { projectPath }),
     runFeature: (
       projectPath: string,
       featureId: string,
       useWorktrees?: boolean,
       worktreePath?: string
     ) =>
-      this.post("/api/auto-mode/run-feature", {
+      this.post('/api/auto-mode/run-feature', {
         projectPath,
         featureId,
         useWorktrees,
         worktreePath,
       }),
     verifyFeature: (projectPath: string, featureId: string) =>
-      this.post("/api/auto-mode/verify-feature", { projectPath, featureId }),
-    resumeFeature: (
-      projectPath: string,
-      featureId: string,
-      useWorktrees?: boolean
-    ) =>
-      this.post("/api/auto-mode/resume-feature", {
+      this.post('/api/auto-mode/verify-feature', { projectPath, featureId }),
+    resumeFeature: (projectPath: string, featureId: string, useWorktrees?: boolean) =>
+      this.post('/api/auto-mode/resume-feature', {
         projectPath,
         featureId,
         useWorktrees,
       }),
     contextExists: (projectPath: string, featureId: string) =>
-      this.post("/api/auto-mode/context-exists", { projectPath, featureId }),
+      this.post('/api/auto-mode/context-exists', { projectPath, featureId }),
     analyzeProject: (projectPath: string) =>
-      this.post("/api/auto-mode/analyze-project", { projectPath }),
+      this.post('/api/auto-mode/analyze-project', { projectPath }),
     followUpFeature: (
       projectPath: string,
       featureId: string,
@@ -561,19 +527,15 @@ export class HttpApiClient implements ElectronAPI {
       imagePaths?: string[],
       worktreePath?: string
     ) =>
-      this.post("/api/auto-mode/follow-up-feature", {
+      this.post('/api/auto-mode/follow-up-feature', {
         projectPath,
         featureId,
         prompt,
         imagePaths,
         worktreePath,
       }),
-    commitFeature: (
-      projectPath: string,
-      featureId: string,
-      worktreePath?: string
-    ) =>
-      this.post("/api/auto-mode/commit-feature", {
+    commitFeature: (projectPath: string, featureId: string, worktreePath?: string) =>
+      this.post('/api/auto-mode/commit-feature', {
         projectPath,
         featureId,
         worktreePath,
@@ -585,7 +547,7 @@ export class HttpApiClient implements ElectronAPI {
       editedPlan?: string,
       feedback?: string
     ) =>
-      this.post("/api/auto-mode/approve-plan", {
+      this.post('/api/auto-mode/approve-plan', {
         projectPath,
         featureId,
         approved,
@@ -593,10 +555,7 @@ export class HttpApiClient implements ElectronAPI {
         feedback,
       }),
     onEvent: (callback: (event: AutoModeEvent) => void) => {
-      return this.subscribeToEvent(
-        "auto-mode:event",
-        callback as EventCallback
-      );
+      return this.subscribeToEvent('auto-mode:event', callback as EventCallback);
     },
   };
 
@@ -607,7 +566,7 @@ export class HttpApiClient implements ElectronAPI {
       enhancementMode: string,
       model?: string
     ): Promise<EnhancePromptResult> =>
-      this.post("/api/enhance-prompt", {
+      this.post('/api/enhance-prompt', {
         originalText,
         enhancementMode,
         model,
@@ -617,86 +576,74 @@ export class HttpApiClient implements ElectronAPI {
   // Worktree API
   worktree: WorktreeAPI = {
     mergeFeature: (projectPath: string, featureId: string, options?: object) =>
-      this.post("/api/worktree/merge", { projectPath, featureId, options }),
+      this.post('/api/worktree/merge', { projectPath, featureId, options }),
     getInfo: (projectPath: string, featureId: string) =>
-      this.post("/api/worktree/info", { projectPath, featureId }),
+      this.post('/api/worktree/info', { projectPath, featureId }),
     getStatus: (projectPath: string, featureId: string) =>
-      this.post("/api/worktree/status", { projectPath, featureId }),
-    list: (projectPath: string) =>
-      this.post("/api/worktree/list", { projectPath }),
+      this.post('/api/worktree/status', { projectPath, featureId }),
+    list: (projectPath: string) => this.post('/api/worktree/list', { projectPath }),
     listAll: (projectPath: string, includeDetails?: boolean) =>
-      this.post("/api/worktree/list", { projectPath, includeDetails }),
+      this.post('/api/worktree/list', { projectPath, includeDetails }),
     create: (projectPath: string, branchName: string, baseBranch?: string) =>
-      this.post("/api/worktree/create", {
+      this.post('/api/worktree/create', {
         projectPath,
         branchName,
         baseBranch,
       }),
-    delete: (
-      projectPath: string,
-      worktreePath: string,
-      deleteBranch?: boolean
-    ) =>
-      this.post("/api/worktree/delete", {
+    delete: (projectPath: string, worktreePath: string, deleteBranch?: boolean) =>
+      this.post('/api/worktree/delete', {
         projectPath,
         worktreePath,
         deleteBranch,
       }),
     commit: (worktreePath: string, message: string) =>
-      this.post("/api/worktree/commit", { worktreePath, message }),
+      this.post('/api/worktree/commit', { worktreePath, message }),
     push: (worktreePath: string, force?: boolean) =>
-      this.post("/api/worktree/push", { worktreePath, force }),
+      this.post('/api/worktree/push', { worktreePath, force }),
     createPR: (worktreePath: string, options?: any) =>
-      this.post("/api/worktree/create-pr", { worktreePath, ...options }),
+      this.post('/api/worktree/create-pr', { worktreePath, ...options }),
     getDiffs: (projectPath: string, featureId: string) =>
-      this.post("/api/worktree/diffs", { projectPath, featureId }),
+      this.post('/api/worktree/diffs', { projectPath, featureId }),
     getFileDiff: (projectPath: string, featureId: string, filePath: string) =>
-      this.post("/api/worktree/file-diff", {
+      this.post('/api/worktree/file-diff', {
         projectPath,
         featureId,
         filePath,
       }),
-    pull: (worktreePath: string) =>
-      this.post("/api/worktree/pull", { worktreePath }),
+    pull: (worktreePath: string) => this.post('/api/worktree/pull', { worktreePath }),
     checkoutBranch: (worktreePath: string, branchName: string) =>
-      this.post("/api/worktree/checkout-branch", { worktreePath, branchName }),
+      this.post('/api/worktree/checkout-branch', { worktreePath, branchName }),
     listBranches: (worktreePath: string) =>
-      this.post("/api/worktree/list-branches", { worktreePath }),
+      this.post('/api/worktree/list-branches', { worktreePath }),
     switchBranch: (worktreePath: string, branchName: string) =>
-      this.post("/api/worktree/switch-branch", { worktreePath, branchName }),
+      this.post('/api/worktree/switch-branch', { worktreePath, branchName }),
     openInEditor: (worktreePath: string) =>
-      this.post("/api/worktree/open-in-editor", { worktreePath }),
-    getDefaultEditor: () => this.get("/api/worktree/default-editor"),
-    initGit: (projectPath: string) =>
-      this.post("/api/worktree/init-git", { projectPath }),
+      this.post('/api/worktree/open-in-editor', { worktreePath }),
+    getDefaultEditor: () => this.get('/api/worktree/default-editor'),
+    initGit: (projectPath: string) => this.post('/api/worktree/init-git', { projectPath }),
     startDevServer: (projectPath: string, worktreePath: string) =>
-      this.post("/api/worktree/start-dev", { projectPath, worktreePath }),
-    stopDevServer: (worktreePath: string) =>
-      this.post("/api/worktree/stop-dev", { worktreePath }),
-    listDevServers: () => this.post("/api/worktree/list-dev-servers", {}),
+      this.post('/api/worktree/start-dev', { projectPath, worktreePath }),
+    stopDevServer: (worktreePath: string) => this.post('/api/worktree/stop-dev', { worktreePath }),
+    listDevServers: () => this.post('/api/worktree/list-dev-servers', {}),
     getPRInfo: (worktreePath: string, branchName: string) =>
-      this.post("/api/worktree/pr-info", { worktreePath, branchName }),
+      this.post('/api/worktree/pr-info', { worktreePath, branchName }),
   };
 
   // Git API
   git: GitAPI = {
-    getDiffs: (projectPath: string) =>
-      this.post("/api/git/diffs", { projectPath }),
+    getDiffs: (projectPath: string) => this.post('/api/git/diffs', { projectPath }),
     getFileDiff: (projectPath: string, filePath: string) =>
-      this.post("/api/git/file-diff", { projectPath, filePath }),
+      this.post('/api/git/file-diff', { projectPath, filePath }),
   };
 
   // Suggestions API
   suggestions: SuggestionsAPI = {
     generate: (projectPath: string, suggestionType?: SuggestionType) =>
-      this.post("/api/suggestions/generate", { projectPath, suggestionType }),
-    stop: () => this.post("/api/suggestions/stop"),
-    status: () => this.get("/api/suggestions/status"),
+      this.post('/api/suggestions/generate', { projectPath, suggestionType }),
+    stop: () => this.post('/api/suggestions/stop'),
+    status: () => this.get('/api/suggestions/status'),
     onEvent: (callback: (event: SuggestionsEvent) => void) => {
-      return this.subscribeToEvent(
-        "suggestions:event",
-        callback as EventCallback
-      );
+      return this.subscribeToEvent('suggestions:event', callback as EventCallback);
     },
   };
 
@@ -709,7 +656,7 @@ export class HttpApiClient implements ElectronAPI {
       analyzeProject?: boolean,
       maxFeatures?: number
     ) =>
-      this.post("/api/spec-regeneration/create", {
+      this.post('/api/spec-regeneration/create', {
         projectPath,
         projectOverview,
         generateFeatures,
@@ -723,7 +670,7 @@ export class HttpApiClient implements ElectronAPI {
       analyzeProject?: boolean,
       maxFeatures?: number
     ) =>
-      this.post("/api/spec-regeneration/generate", {
+      this.post('/api/spec-regeneration/generate', {
         projectPath,
         projectDefinition,
         generateFeatures,
@@ -731,17 +678,14 @@ export class HttpApiClient implements ElectronAPI {
         maxFeatures,
       }),
     generateFeatures: (projectPath: string, maxFeatures?: number) =>
-      this.post("/api/spec-regeneration/generate-features", {
+      this.post('/api/spec-regeneration/generate-features', {
         projectPath,
         maxFeatures,
       }),
-    stop: () => this.post("/api/spec-regeneration/stop"),
-    status: () => this.get("/api/spec-regeneration/status"),
+    stop: () => this.post('/api/spec-regeneration/stop'),
+    status: () => this.get('/api/spec-regeneration/status'),
     onEvent: (callback: (event: SpecRegenerationEvent) => void) => {
-      return this.subscribeToEvent(
-        "spec-regeneration:event",
-        callback as EventCallback
-      );
+      return this.subscribeToEvent('spec-regeneration:event', callback as EventCallback);
     },
   };
 
@@ -757,7 +701,7 @@ export class HttpApiClient implements ElectronAPI {
       }>;
       totalCount?: number;
       error?: string;
-    }> => this.get("/api/running-agents"),
+    }> => this.get('/api/running-agents'),
   };
 
   // Workspace API
@@ -768,13 +712,13 @@ export class HttpApiClient implements ElectronAPI {
       workspaceDir?: string;
       defaultDir?: string | null;
       error?: string;
-    }> => this.get("/api/workspace/config"),
+    }> => this.get('/api/workspace/config'),
 
     getDirectories: (): Promise<{
       success: boolean;
       directories?: Array<{ name: string; path: string }>;
       error?: string;
-    }> => this.get("/api/workspace/directories"),
+    }> => this.get('/api/workspace/directories'),
   };
 
   // Agent API
@@ -786,7 +730,7 @@ export class HttpApiClient implements ElectronAPI {
       success: boolean;
       messages?: Message[];
       error?: string;
-    }> => this.post("/api/agent/start", { sessionId, workingDirectory }),
+    }> => this.post('/api/agent/start', { sessionId, workingDirectory }),
 
     send: (
       sessionId: string,
@@ -795,7 +739,7 @@ export class HttpApiClient implements ElectronAPI {
       imagePaths?: string[],
       model?: string
     ): Promise<{ success: boolean; error?: string }> =>
-      this.post("/api/agent/send", {
+      this.post('/api/agent/send', {
         sessionId,
         message,
         workingDirectory,
@@ -810,16 +754,16 @@ export class HttpApiClient implements ElectronAPI {
       messages?: Message[];
       isRunning?: boolean;
       error?: string;
-    }> => this.post("/api/agent/history", { sessionId }),
+    }> => this.post('/api/agent/history', { sessionId }),
 
     stop: (sessionId: string): Promise<{ success: boolean; error?: string }> =>
-      this.post("/api/agent/stop", { sessionId }),
+      this.post('/api/agent/stop', { sessionId }),
 
     clear: (sessionId: string): Promise<{ success: boolean; error?: string }> =>
-      this.post("/api/agent/clear", { sessionId }),
+      this.post('/api/agent/clear', { sessionId }),
 
     onStream: (callback: (data: unknown) => void): (() => void) => {
-      return this.subscribeToEvent("agent:stream", callback as EventCallback);
+      return this.subscribeToEvent('agent:stream', callback as EventCallback);
     },
   };
 
@@ -834,8 +778,7 @@ export class HttpApiClient implements ElectronAPI {
       projectPath?: string;
       projectName?: string;
       error?: string;
-    }> =>
-      this.post("/api/templates/clone", { repoUrl, projectName, parentDir }),
+    }> => this.post('/api/templates/clone', { repoUrl, projectName, parentDir }),
   };
 
   // Settings API - persistent file-based settings
@@ -847,7 +790,7 @@ export class HttpApiClient implements ElectronAPI {
       hasCredentials: boolean;
       dataDir: string;
       needsMigration: boolean;
-    }> => this.get("/api/settings/status"),
+    }> => this.get('/api/settings/status'),
 
     // Global settings
     getGlobal: (): Promise<{
@@ -880,13 +823,15 @@ export class HttpApiClient implements ElectronAPI {
         lastSelectedSessionByProject: Record<string, string>;
       };
       error?: string;
-    }> => this.get("/api/settings/global"),
+    }> => this.get('/api/settings/global'),
 
-    updateGlobal: (updates: Record<string, unknown>): Promise<{
+    updateGlobal: (
+      updates: Record<string, unknown>
+    ): Promise<{
       success: boolean;
       settings?: Record<string, unknown>;
       error?: string;
-    }> => this.put("/api/settings/global", updates),
+    }> => this.put('/api/settings/global', updates),
 
     // Credentials (masked for security)
     getCredentials: (): Promise<{
@@ -897,7 +842,7 @@ export class HttpApiClient implements ElectronAPI {
         openai: { configured: boolean; masked: string };
       };
       error?: string;
-    }> => this.get("/api/settings/credentials"),
+    }> => this.get('/api/settings/credentials'),
 
     updateCredentials: (updates: {
       apiKeys?: { anthropic?: string; google?: string; openai?: string };
@@ -909,10 +854,12 @@ export class HttpApiClient implements ElectronAPI {
         openai: { configured: boolean; masked: string };
       };
       error?: string;
-    }> => this.put("/api/settings/credentials", updates),
+    }> => this.put('/api/settings/credentials', updates),
 
     // Project settings
-    getProject: (projectPath: string): Promise<{
+    getProject: (
+      projectPath: string
+    ): Promise<{
       success: boolean;
       settings?: {
         version: number;
@@ -940,7 +887,7 @@ export class HttpApiClient implements ElectronAPI {
         lastSelectedSessionId?: string;
       };
       error?: string;
-    }> => this.post("/api/settings/project", { projectPath }),
+    }> => this.post('/api/settings/project', { projectPath }),
 
     updateProject: (
       projectPath: string,
@@ -949,22 +896,22 @@ export class HttpApiClient implements ElectronAPI {
       success: boolean;
       settings?: Record<string, unknown>;
       error?: string;
-    }> => this.put("/api/settings/project", { projectPath, updates }),
+    }> => this.put('/api/settings/project', { projectPath, updates }),
 
     // Migration from localStorage
     migrate: (data: {
-      "automaker-storage"?: string;
-      "automaker-setup"?: string;
-      "worktree-panel-collapsed"?: string;
-      "file-browser-recent-folders"?: string;
-      "automaker:lastProjectDir"?: string;
+      'automaker-storage'?: string;
+      'automaker-setup'?: string;
+      'worktree-panel-collapsed'?: string;
+      'file-browser-recent-folders'?: string;
+      'automaker:lastProjectDir'?: string;
     }): Promise<{
       success: boolean;
       migratedGlobalSettings: boolean;
       migratedCredentials: boolean;
       migratedProjectCount: number;
       errors: string[];
-    }> => this.post("/api/settings/migrate", { data }),
+    }> => this.post('/api/settings/migrate', { data }),
   };
 
   // Sessions API
@@ -992,7 +939,7 @@ export class HttpApiClient implements ElectronAPI {
         updatedAt: string;
       };
       error?: string;
-    }> => this.post("/api/sessions", { name, projectPath, workingDirectory }),
+    }> => this.post('/api/sessions', { name, projectPath, workingDirectory }),
 
     update: (
       sessionId: string,
@@ -1001,25 +948,19 @@ export class HttpApiClient implements ElectronAPI {
     ): Promise<{ success: boolean; error?: string }> =>
       this.put(`/api/sessions/${sessionId}`, { name, tags }),
 
-    archive: (
-      sessionId: string
-    ): Promise<{ success: boolean; error?: string }> =>
+    archive: (sessionId: string): Promise<{ success: boolean; error?: string }> =>
       this.post(`/api/sessions/${sessionId}/archive`, {}),
 
-    unarchive: (
-      sessionId: string
-    ): Promise<{ success: boolean; error?: string }> =>
+    unarchive: (sessionId: string): Promise<{ success: boolean; error?: string }> =>
       this.post(`/api/sessions/${sessionId}/unarchive`, {}),
 
-    delete: (
-      sessionId: string
-    ): Promise<{ success: boolean; error?: string }> =>
+    delete: (sessionId: string): Promise<{ success: boolean; error?: string }> =>
       this.httpDelete(`/api/sessions/${sessionId}`),
   };
 
   // Claude API
   claude = {
-    getUsage: (): Promise<ClaudeUsageResponse> => this.get("/api/claude/usage"),
+    getUsage: (): Promise<ClaudeUsageResponse> => this.get('/api/claude/usage'),
   };
 }
 

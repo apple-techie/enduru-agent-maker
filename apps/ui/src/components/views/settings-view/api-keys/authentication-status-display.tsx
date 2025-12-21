@@ -1,12 +1,6 @@
-import { Label } from "@/components/ui/label";
-import {
-  CheckCircle2,
-  AlertCircle,
-  Info,
-  Terminal,
-  Sparkles,
-} from "lucide-react";
-import type { ClaudeAuthStatus } from "@/store/setup-store";
+import { Label } from '@/components/ui/label';
+import { CheckCircle2, AlertCircle, Info, Terminal } from 'lucide-react';
+import type { ClaudeAuthStatus } from '@/store/setup-store';
 
 interface AuthenticationStatusDisplayProps {
   claudeAuthStatus: ClaudeAuthStatus | null;
@@ -39,35 +33,29 @@ export function AuthenticationStatusDisplay({
         <div className="p-3 rounded-lg bg-card border border-border">
           <div className="flex items-center gap-2 mb-1.5">
             <Terminal className="w-4 h-4 text-brand-500" />
-            <span className="text-sm font-medium text-foreground">
-              Claude (Anthropic)
-            </span>
+            <span className="text-sm font-medium text-foreground">Claude (Anthropic)</span>
           </div>
           <div className="space-y-1.5 text-xs min-h-12">
             {claudeAuthStatus?.authenticated ? (
               <>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
-                  <span className="text-green-400 font-medium">
-                    Authenticated
-                  </span>
+                  <span className="text-green-400 font-medium">Authenticated</span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Info className="w-3 h-3 shrink-0" />
                   <span>
-                    {claudeAuthStatus.method === "oauth_token"
-                      ? "Using stored OAuth token (subscription)"
-                      : claudeAuthStatus.method === "api_key_env"
-                      ? "Using ANTHROPIC_API_KEY"
-                      : claudeAuthStatus.method === "api_key"
-                      ? "Using stored API key"
-                      : claudeAuthStatus.method === "credentials_file"
-                      ? "Using credentials file"
-                      : claudeAuthStatus.method === "cli_authenticated"
-                      ? "Using Claude CLI authentication"
-                      : `Using ${
-                          claudeAuthStatus.method || "detected"
-                        } authentication`}
+                    {claudeAuthStatus.method === 'oauth_token'
+                      ? 'Using stored OAuth token (subscription)'
+                      : claudeAuthStatus.method === 'api_key_env'
+                        ? 'Using ANTHROPIC_API_KEY'
+                        : claudeAuthStatus.method === 'api_key'
+                          ? 'Using stored API key'
+                          : claudeAuthStatus.method === 'credentials_file'
+                            ? 'Using credentials file'
+                            : claudeAuthStatus.method === 'cli_authenticated'
+                              ? 'Using Claude CLI authentication'
+                              : `Using ${claudeAuthStatus.method || 'detected'} authentication`}
                   </span>
                 </div>
               </>

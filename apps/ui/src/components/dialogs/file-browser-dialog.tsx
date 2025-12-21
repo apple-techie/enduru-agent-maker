@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FolderOpen,
   Folder,
@@ -9,7 +9,7 @@ import {
   CornerDownLeft,
   Clock,
   X,
-} from "lucide-react";
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -17,14 +17,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { getJSON, setJSON } from "@/lib/storage";
-import {
-  getDefaultWorkspaceDirectory,
-  saveLastProjectDirectory,
-} from "@/lib/workspace-config";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { getJSON, setJSON } from '@/lib/storage';
+import { getDefaultWorkspaceDirectory, saveLastProjectDirectory } from '@/lib/workspace-config';
 
 interface DirectoryEntry {
   name: string;
@@ -50,7 +47,7 @@ interface FileBrowserDialogProps {
   initialPath?: string;
 }
 
-const RECENT_FOLDERS_KEY = "file-browser-recent-folders";
+const RECENT_FOLDERS_KEY = 'file-browser-recent-folders';
 const MAX_RECENT_FOLDERS = 5;
 
 function getRecentFolders(): string[] {
@@ -76,18 +73,18 @@ export function FileBrowserDialog({
   open,
   onOpenChange,
   onSelect,
-  title = "Select Project Directory",
-  description = "Navigate to your project folder or paste a path directly",
+  title = 'Select Project Directory',
+  description = 'Navigate to your project folder or paste a path directly',
   initialPath,
 }: FileBrowserDialogProps) {
-  const [currentPath, setCurrentPath] = useState<string>("");
-  const [pathInput, setPathInput] = useState<string>("");
+  const [currentPath, setCurrentPath] = useState<string>('');
+  const [pathInput, setPathInput] = useState<string>('');
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [directories, setDirectories] = useState<DirectoryEntry[]>([]);
   const [drives, setDrives] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [warning, setWarning] = useState("");
+  const [error, setError] = useState('');
+  const [warning, setWarning] = useState('');
   const [recentFolders, setRecentFolders] = useState<string[]>([]);
   const pathInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,28 +95,24 @@ export function FileBrowserDialog({
     }
   }, [open]);
 
-  const handleRemoveRecent = useCallback(
-    (e: React.MouseEvent, path: string) => {
-      e.stopPropagation();
-      const updated = removeRecentFolder(path);
-      setRecentFolders(updated);
-    },
-    []
-  );
+  const handleRemoveRecent = useCallback((e: React.MouseEvent, path: string) => {
+    e.stopPropagation();
+    const updated = removeRecentFolder(path);
+    setRecentFolders(updated);
+  }, []);
 
   const browseDirectory = useCallback(async (dirPath?: string) => {
     setLoading(true);
-    setError("");
-    setWarning("");
+    setError('');
+    setWarning('');
 
     try {
       // Get server URL from environment or default
-      const serverUrl =
-        import.meta.env.VITE_SERVER_URL || "http://localhost:3008";
+      const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3008';
 
       const response = await fetch(`${serverUrl}/api/fs/browse`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dirPath }),
       });
 
@@ -131,14 +124,12 @@ export function FileBrowserDialog({
         setParentPath(result.parentPath);
         setDirectories(result.directories);
         setDrives(result.drives || []);
-        setWarning(result.warning || "");
+        setWarning(result.warning || '');
       } else {
-        setError(result.error || "Failed to browse directory");
+        setError(result.error || 'Failed to browse directory');
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load directories"
-      );
+      setError(err instanceof Error ? err.message : 'Failed to load directories');
     } finally {
       setLoading(false);
     }
@@ -154,12 +145,12 @@ export function FileBrowserDialog({
   // Reset current path when dialog closes
   useEffect(() => {
     if (!open) {
-      setCurrentPath("");
-      setPathInput("");
+      setCurrentPath('');
+      setPathInput('');
       setParentPath(null);
       setDirectories([]);
-      setError("");
-      setWarning("");
+      setError('');
+      setWarning('');
     }
   }, [open]);
 
@@ -189,7 +180,7 @@ export function FileBrowserDialog({
             // No default directory, browse home directory
             browseDirectory();
           }
-        } catch (err) {
+        } catch {
           // If config fetch fails, try initialPath or fall back to home directory
           if (initialPath) {
             setPathInput(initialPath);
@@ -230,7 +221,7 @@ export function FileBrowserDialog({
   };
 
   const handlePathInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       e.preventDefault();
       handleGoToPath();
     }
@@ -252,7 +243,7 @@ export function FileBrowserDialog({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Check for Command+Enter (Mac) or Ctrl+Enter (Windows/Linux)
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         if (currentPath && !loading) {
           handleSelect();
@@ -260,8 +251,8 @@ export function FileBrowserDialog({
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, currentPath, loading, handleSelect]);
 
   // Helper to get folder name from path
@@ -326,9 +317,7 @@ export function FileBrowserDialog({
                   title={folder}
                 >
                   <Folder className="w-3 h-3 text-brand-500 shrink-0" />
-                  <span className="truncate max-w-[120px]">
-                    {getFolderName(folder)}
-                  </span>
+                  <span className="truncate max-w-[120px]">{getFolderName(folder)}</span>
                   <button
                     onClick={(e) => handleRemoveRecent(e, folder)}
                     className="ml-0.5 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
@@ -351,15 +340,13 @@ export function FileBrowserDialog({
               {drives.map((drive) => (
                 <Button
                   key={drive}
-                  variant={
-                    currentPath.startsWith(drive) ? "default" : "outline"
-                  }
+                  variant={currentPath.startsWith(drive) ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => handleSelectDrive(drive)}
                   className="h-6 px-2 text-xs"
                   disabled={loading}
                 >
-                  {drive.replace("\\", "")}
+                  {drive.replace('\\', '')}
                 </Button>
               ))}
             </div>
@@ -388,7 +375,7 @@ export function FileBrowserDialog({
               </Button>
             )}
             <div className="flex-1 font-mono text-xs truncate text-muted-foreground">
-              {currentPath || "Loading..."}
+              {currentPath || 'Loading...'}
             </div>
           </div>
 
@@ -396,9 +383,7 @@ export function FileBrowserDialog({
           <div className="flex-1 overflow-y-auto border border-sidebar-border rounded-md">
             {loading && (
               <div className="flex items-center justify-center h-full p-4">
-                <div className="text-xs text-muted-foreground">
-                  Loading directories...
-                </div>
+                <div className="text-xs text-muted-foreground">Loading directories...</div>
               </div>
             )}
 
@@ -416,9 +401,7 @@ export function FileBrowserDialog({
 
             {!loading && !error && !warning && directories.length === 0 && (
               <div className="flex items-center justify-center h-full p-4">
-                <div className="text-xs text-muted-foreground">
-                  No subdirectories found
-                </div>
+                <div className="text-xs text-muted-foreground">No subdirectories found</div>
               </div>
             )}
 
@@ -440,8 +423,8 @@ export function FileBrowserDialog({
           </div>
 
           <div className="text-[10px] text-muted-foreground">
-            Paste a full path above, or click on folders to navigate. Press
-            Enter or click Go to jump to a path.
+            Paste a full path above, or click on folders to navigate. Press Enter or click Go to
+            jump to a path.
           </div>
         </div>
 
@@ -458,10 +441,9 @@ export function FileBrowserDialog({
             <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
             Select Current Folder
             <kbd className="ml-2 px-1.5 py-0.5 text-[10px] bg-background/50 rounded border border-border">
-              {typeof navigator !== "undefined" &&
-              navigator.platform?.includes("Mac")
-                ? "⌘"
-                : "Ctrl"}
+              {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac')
+                ? '⌘'
+                : 'Ctrl'}
               +↵
             </kbd>
           </Button>

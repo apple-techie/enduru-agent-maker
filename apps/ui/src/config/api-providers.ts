@@ -1,8 +1,7 @@
-import type { Dispatch, SetStateAction } from "react";
-import type { LucideIcon } from "lucide-react";
-import type { ApiKeys } from "@/store/app-store";
+import type { Dispatch, SetStateAction } from 'react';
+import type { ApiKeys } from '@/store/app-store';
 
-export type ProviderKey = "anthropic" | "google";
+export type ProviderKey = 'anthropic' | 'google';
 
 export interface ProviderConfig {
   key: ProviderKey;
@@ -56,33 +55,32 @@ export interface ProviderConfigParams {
 export const buildProviderConfigs = ({
   apiKeys,
   anthropic,
-  google,
 }: ProviderConfigParams): ProviderConfig[] => [
   {
-    key: "anthropic",
-    label: "Anthropic API Key",
-    inputId: "anthropic-key",
-    placeholder: "sk-ant-...",
+    key: 'anthropic',
+    label: 'Anthropic API Key',
+    inputId: 'anthropic-key',
+    placeholder: 'sk-ant-...',
     value: anthropic.value,
     setValue: anthropic.setValue,
     showValue: anthropic.show,
     setShowValue: anthropic.setShow,
     hasStoredKey: apiKeys.anthropic,
-    inputTestId: "anthropic-api-key-input",
-    toggleTestId: "toggle-anthropic-visibility",
+    inputTestId: 'anthropic-api-key-input',
+    toggleTestId: 'toggle-anthropic-visibility',
     testButton: {
       onClick: anthropic.onTest,
       disabled: !anthropic.value || anthropic.testing,
       loading: anthropic.testing,
-      testId: "test-claude-connection",
+      testId: 'test-claude-connection',
     },
     result: anthropic.result,
-    resultTestId: "test-connection-result",
-    resultMessageTestId: "test-connection-message",
-    descriptionPrefix: "Used for Claude AI features. Get your key at",
-    descriptionLinkHref: "https://console.anthropic.com/account/keys",
-    descriptionLinkText: "console.anthropic.com",
-    descriptionSuffix: ".",
+    resultTestId: 'test-connection-result',
+    resultMessageTestId: 'test-connection-message',
+    descriptionPrefix: 'Used for Claude AI features. Get your key at',
+    descriptionLinkHref: 'https://console.anthropic.com/account/keys',
+    descriptionLinkText: 'console.anthropic.com',
+    descriptionSuffix: '.',
   },
   // {
   //   key: "google",

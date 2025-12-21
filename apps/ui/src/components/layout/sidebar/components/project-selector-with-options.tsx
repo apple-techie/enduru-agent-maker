@@ -37,7 +37,7 @@ import { useKeyboardShortcutsConfig } from '@/hooks/use-keyboard-shortcuts';
 interface ProjectSelectorWithOptionsProps {
   sidebarOpen: boolean;
   isProjectPickerOpen: boolean;
-  setIsProjectPickerOpen: (value: boolean) => void;
+  setIsProjectPickerOpen: (value: boolean | ((prev: boolean) => boolean)) => void;
   setShowDeleteProjectDialog: (show: boolean) => void;
 }
 

@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useAppStore, type ThemeMode } from '@/store/app-store';
-import { getElectronAPI, type Project } from '@/lib/electron';
+import { getElectronAPI } from '@/lib/electron';
 import { initializeProject } from '@/lib/project-init';
 import {
   FolderOpen,
@@ -112,7 +112,7 @@ export function WelcomeView() {
           (trashedProject?.theme as ThemeMode | undefined) ||
           (currentProject?.theme as ThemeMode | undefined) ||
           globalTheme;
-        const project = upsertAndSetCurrentProject(path, name, effectiveTheme);
+        upsertAndSetCurrentProject(path, name, effectiveTheme);
 
         // Show initialization dialog if files were created
         if (initResult.createdFiles && initResult.createdFiles.length > 0) {
@@ -241,7 +241,7 @@ export function WelcomeView() {
 
       // Verify parent is actually a directory
       const parentStat = await api.stat(parentDir);
-      if (parentStat && !parentStat.isDirectory) {
+      if (parentStat && !parentStat.stats?.isDirectory) {
         toast.error('Parent path is not a directory', {
           description: `${parentDir} is not a directory`,
         });
@@ -538,7 +538,7 @@ export function WelcomeView() {
       <div className="shrink-0 border-b border-border bg-glass backdrop-blur-md">
         <div className="px-8 py-6">
           <div className="flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500/20 to-brand-600/10 border border-brand-500/20 flex items-center justify-center shadow-lg shadow-brand-500/10">
+            <div className="w-12 h-12 rounded-xl bg-linear-to-br from-brand-500/20 to-brand-600/10 border border-brand-500/20 flex items-center justify-center shadow-lg shadow-brand-500/10">
               <img src="/logo.png" alt="Automaker Logo" className="w-8 h-8" />
             </div>
             <div>
@@ -563,10 +563,10 @@ export function WelcomeView() {
               className="group relative rounded-xl border border-border bg-card/80 backdrop-blur-sm hover:bg-card hover:border-brand-500/30 hover:shadow-xl hover:shadow-brand-500/5 transition-all duration-300 hover:-translate-y-1"
               data-testid="new-project-card"
             >
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-brand-500/5 via-transparent to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 rounded-xl bg-linear-to-br from-brand-500/5 via-transparent to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <div className="relative p-6 h-full flex flex-col">
                 <div className="flex items-start gap-4 flex-1">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 shadow-lg shadow-brand-500/25 flex items-center justify-center group-hover:scale-105 group-hover:shadow-brand-500/40 transition-all duration-300 shrink-0">
+                  <div className="w-12 h-12 rounded-xl bg-linear-to-br from-brand-500 to-brand-600 shadow-lg shadow-brand-500/25 flex items-center justify-center group-hover:scale-105 group-hover:shadow-brand-500/40 transition-all duration-300 shrink-0">
                     <Plus className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -579,7 +579,7 @@ export function WelcomeView() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      className="w-full mt-5 bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white border-0 shadow-md shadow-brand-500/20 hover:shadow-brand-500/30 transition-all"
+                      className="w-full mt-5 bg-linear-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white border-0 shadow-md shadow-brand-500/20 hover:shadow-brand-500/30 transition-all"
                       data-testid="create-new-project"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -610,7 +610,7 @@ export function WelcomeView() {
               onClick={handleOpenProject}
               data-testid="open-project-card"
             >
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500/5 via-transparent to-cyan-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 rounded-xl bg-linear-to-br from-blue-500/5 via-transparent to-cyan-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <div className="relative p-6 h-full flex flex-col">
                 <div className="flex items-start gap-4 flex-1">
                   <div className="w-12 h-12 rounded-xl bg-muted border border-border flex items-center justify-center group-hover:bg-blue-500/10 group-hover:border-blue-500/30 group-hover:scale-105 transition-all duration-300 shrink-0">
@@ -653,7 +653,7 @@ export function WelcomeView() {
                     data-testid={`recent-project-${project.id}`}
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
-                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-brand-500/0 to-purple-600/0 group-hover:from-brand-500/5 group-hover:to-purple-600/5 transition-all duration-300" />
+                    <div className="absolute inset-0 rounded-xl bg-linear-to-br from-brand-500/0 to-purple-600/0 group-hover:from-brand-500/5 group-hover:to-purple-600/5 transition-all duration-300" />
                     <div className="relative p-4">
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-lg bg-muted/80 border border-border flex items-center justify-center group-hover:bg-brand-500/10 group-hover:border-brand-500/30 transition-all duration-300 shrink-0">
@@ -767,7 +767,7 @@ export function WelcomeView() {
           <DialogFooter>
             <Button
               onClick={() => setShowInitDialog(false)}
-              className="bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white border-0 shadow-md shadow-brand-500/20"
+              className="bg-linear-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white border-0 shadow-md shadow-brand-500/20"
               data-testid="close-init-dialog"
             >
               Get Started
