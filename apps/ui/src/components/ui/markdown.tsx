@@ -1,4 +1,6 @@
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import { cn } from '@/lib/utils';
 
 interface MarkdownProps {
@@ -9,6 +11,7 @@ interface MarkdownProps {
 /**
  * Reusable Markdown component for rendering markdown content
  * Theme-aware styling that adapts to all predefined themes
+ * Supports raw HTML elements including images
  */
 export function Markdown({ children, className }: MarkdownProps) {
   return (
@@ -37,10 +40,12 @@ export function Markdown({ children, className }: MarkdownProps) {
         '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_blockquote]:my-2',
         // Horizontal rules
         '[&_hr]:border-border [&_hr]:my-4',
+        // Images
+        '[&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 [&_img]:border [&_img]:border-border',
         className
       )}
     >
-      <ReactMarkdown>{children}</ReactMarkdown>
+      <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeSanitize]}>{children}</ReactMarkdown>
     </div>
   );
 }

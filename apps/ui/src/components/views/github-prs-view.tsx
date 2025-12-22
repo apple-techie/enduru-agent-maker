@@ -1,17 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  GitPullRequest,
-  Loader2,
-  RefreshCw,
-  ExternalLink,
-  GitMerge,
-  Circle,
-  X,
-  AlertCircle,
-} from 'lucide-react';
+import { GitPullRequest, Loader2, RefreshCw, ExternalLink, GitMerge, X } from 'lucide-react';
 import { getElectronAPI, GitHubPR } from '@/lib/electron';
 import { useAppStore } from '@/store/app-store';
 import { Button } from '@/components/ui/button';
+import { Markdown } from '@/components/ui/markdown';
 import { cn } from '@/lib/utils';
 
 export function GitHubPRsView() {
@@ -296,9 +288,7 @@ export function GitHubPRsView() {
 
             {/* Body */}
             {selectedPR.body ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <div className="whitespace-pre-wrap text-sm">{selectedPR.body}</div>
-              </div>
+              <Markdown className="text-sm">{selectedPR.body}</Markdown>
             ) : (
               <p className="text-sm text-muted-foreground italic">No description provided.</p>
             )}

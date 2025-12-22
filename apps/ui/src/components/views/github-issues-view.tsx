@@ -3,6 +3,7 @@ import { CircleDot, Loader2, RefreshCw, ExternalLink, CheckCircle2, Circle, X } 
 import { getElectronAPI, GitHubIssue } from '@/lib/electron';
 import { useAppStore } from '@/store/app-store';
 import { Button } from '@/components/ui/button';
+import { Markdown } from '@/components/ui/markdown';
 import { cn } from '@/lib/utils';
 
 export function GitHubIssuesView() {
@@ -241,9 +242,7 @@ export function GitHubIssuesView() {
 
             {/* Body */}
             {selectedIssue.body ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <div className="whitespace-pre-wrap text-sm">{selectedIssue.body}</div>
-              </div>
+              <Markdown className="text-sm">{selectedIssue.body}</Markdown>
             ) : (
               <p className="text-sm text-muted-foreground italic">No description provided.</p>
             )}
