@@ -1,5 +1,5 @@
 import { useEffect, Fragment, FocusEvent, KeyboardEvent, MouseEvent } from 'react';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { Home, ArrowLeft, Pencil, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -168,6 +168,8 @@ function PathInput({
     [isEditing]
   );
 
+  const breadcrumbs = useMemo(() => parseBreadcrumbs(currentPath), [currentPath]);
+
   const showBreadcrumbs = currentPath && !isEditing && !loading && !error;
 
   return (
@@ -217,7 +219,7 @@ function PathInput({
           <>
             <Breadcrumb className="flex-1 min-w-0 overflow-hidden">
               <BreadcrumbList className="flex-nowrap overflow-x-auto scrollbar-none">
-                {parseBreadcrumbs(currentPath).map((crumb) => (
+                {breadcrumbs.map((crumb) => (
                   <Fragment key={crumb.path}>
                     <BreadcrumbItem className="shrink-0">
                       {crumb.isLast ? (
