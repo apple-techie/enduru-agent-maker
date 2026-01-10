@@ -284,13 +284,36 @@ function RootLayoutContent() {
         // Initialize API key for Electron mode
         await initApiKey();
 
-        // 1. Verify session (Single Request, ALL modes)
+        // 1. Verify session with retry logic for server restarts
+        // verifySession() returns false for definitive auth failures (401/403)
+        // and throws for network/timeout errors (server might be restarting)
         let isValid = false;
-        try {
-          isValid = await verifySession();
-        } catch (error) {
-          logger.warn('Session verification failed (likely network/server issue):', error);
-          isValid = false;
+        const maxSessionAttempts = 8;
+        const baseSessionDelayMs = 500;
+
+        for (let attempt = 1; attempt <= maxSessionAttempts; attempt++) {
+          try {
+            isValid = await verifySession();
+            // If we get here, verifySession completed (returned true or false)
+            // false = definitive auth failure (401/403), no point retrying
+            break;
+          } catch (error) {
+            // Network/timeout error - server might be restarting
+            if (attempt === maxSessionAttempts) {
+              logger.warn(
+                `Session verification failed after ${maxSessionAttempts} attempts (server unavailable):`,
+                error
+              );
+              isValid = false;
+              break;
+            }
+
+            const delayMs = Math.min(2000, baseSessionDelayMs * attempt);
+            logger.info(
+              `Session verification failed (attempt ${attempt}/${maxSessionAttempts}), server may be restarting. Retrying in ${delayMs}ms...`
+            );
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
         }
 
         if (isValid) {
