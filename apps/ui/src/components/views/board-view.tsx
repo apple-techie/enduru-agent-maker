@@ -1032,17 +1032,9 @@ export function BoardView() {
     currentProject,
   });
 
-  // Use onboarding wizard hook - check if board is empty (no non-sample features)
-  const nonSampleFeatureCount = useMemo(
-    () => hookFeatures.filter((f) => !isSampleFeature(f)).length,
-    [hookFeatures]
-  );
+  // Use onboarding wizard hook - triggered manually via help button
   const onboarding = useBoardOnboarding({
     projectPath: currentProject?.path || null,
-    isEmpty: nonSampleFeatureCount === 0 && !isLoading,
-    totalFeatureCount: hookFeatures.length,
-    // Don't show wizard when spec generation is happening (for new projects)
-    isSpecDialogOpen: isCreatingSpec,
   });
 
   // Handler for Quick Start - create sample features
@@ -1292,8 +1284,7 @@ export function BoardView() {
         onShowBoardBackground={() => setShowBoardBackgroundModal(true)}
         onShowCompletedModal={() => setShowCompletedModal(true)}
         completedCount={completedFeatures.length}
-        onShowTour={onboarding.retriggerWizard}
-        canShowTour={onboarding.canRetrigger}
+        onStartTour={onboarding.startWizard}
       />
 
       {/* Worktree Panel - conditionally rendered based on visibility setting */}
@@ -1667,6 +1658,7 @@ export function BoardView() {
         hasSampleData={onboarding.hasSampleData}
         onClearSampleData={handleClearSampleData}
         isQuickStartLoading={isQuickStartLoading}
+        steps={onboarding.steps}
       />
     </div>
   );

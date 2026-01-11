@@ -7,10 +7,8 @@ interface BoardControlsProps {
   onShowBoardBackground: () => void;
   onShowCompletedModal: () => void;
   completedCount: number;
-  /** Callback to show the onboarding wizard tour */
-  onShowTour?: () => void;
-  /** Whether the tour can be shown (wizard was previously completed/skipped) */
-  canShowTour?: boolean;
+  /** Callback to start the onboarding wizard tour */
+  onStartTour?: () => void;
 }
 
 export function BoardControls({
@@ -18,22 +16,21 @@ export function BoardControls({
   onShowBoardBackground,
   onShowCompletedModal,
   completedCount,
-  onShowTour,
-  canShowTour = false,
+  onStartTour,
 }: BoardControlsProps) {
   if (!isMounted) return null;
 
   return (
     <TooltipProvider>
       <div className="flex items-center gap-2">
-        {/* Board Tour Button - only show if tour can be retriggered */}
-        {canShowTour && onShowTour && (
+        {/* Board Tour Button - always visible when handler is provided */}
+        {onStartTour && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onShowTour}
+                onClick={onStartTour}
                 className="h-8 px-2 min-w-[32px] focus-visible:ring-2 focus-visible:ring-primary"
                 data-testid="board-tour-button"
                 aria-label="Take a board tour - learn how to use the kanban board"
