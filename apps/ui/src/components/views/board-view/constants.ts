@@ -16,10 +16,6 @@ export interface EmptyStateConfig {
     label: string;
     actionType: 'ai-suggest' | 'none';
   };
-  exampleCard?: {
-    title: string;
-    category: string;
-  };
 }
 
 /**
@@ -34,49 +30,29 @@ export const EMPTY_STATE_CONFIGS: Record<string, EmptyStateConfig> = {
     shortcutHint: 'Press',
     primaryAction: {
       label: 'Use AI Suggestions',
-      actionType: 'ai-suggest',
-    },
-    exampleCard: {
-      title: 'User Authentication',
-      category: 'Core Feature',
+      actionType: 'none',
     },
   },
   in_progress: {
     title: 'Nothing in Progress',
     description: 'Drag a feature from the backlog here or click implement to start working on it.',
     icon: 'play',
-    exampleCard: {
-      title: 'Implementing feature...',
-      category: 'In Development',
-    },
   },
   waiting_approval: {
     title: 'No Items Awaiting Approval',
     description: 'Features will appear here after implementation is complete and need your review.',
     icon: 'clock',
-    exampleCard: {
-      title: 'Ready for Review',
-      category: 'Completed',
-    },
   },
   verified: {
     title: 'No Verified Features',
     description: 'Approved features will appear here. They can then be completed and archived.',
     icon: 'check',
-    exampleCard: {
-      title: 'Approved & Ready',
-      category: 'Verified',
-    },
   },
   // Pipeline step default configuration
   pipeline_default: {
     title: 'Pipeline Step Empty',
     description: 'Features will flow through this step during the automated pipeline process.',
     icon: 'sparkles',
-    exampleCard: {
-      title: 'Processing...',
-      category: 'Pipeline',
-    },
   },
 };
 

@@ -1,20 +1,10 @@
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { formatShortcut } from '@/store/app-store';
 import { getEmptyStateConfig, type EmptyStateConfig } from '../constants';
-import {
-  Lightbulb,
-  Play,
-  Clock,
-  CheckCircle2,
-  Sparkles,
-  Wand2,
-  X,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
+import { Lightbulb, Play, Clock, CheckCircle2, Sparkles, Wand2 } from 'lucide-react';
 
 const ICON_MAP = {
   lightbulb: Lightbulb,
@@ -51,42 +41,13 @@ export const EmptyStateCard = memo(function EmptyStateCard({
   onAiSuggest,
   customConfig,
 }: EmptyStateCardProps) {
-  const [isDismissed, setIsDismissed] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-
   // Get base config and merge with custom overrides
   const baseConfig = getEmptyStateConfig(columnId);
   const config: EmptyStateConfig = { ...baseConfig, ...customConfig };
 
-  // Handle dismissal
-  if (isDismissed) {
-    return null;
-  }
-
   const IconComponent = ICON_MAP[config.icon];
   const showActions = !isReadOnly && !isFilteredEmpty;
   const showShortcut = columnId === 'backlog' && addFeatureShortcut && showActions;
-
-  // Minimized state - compact centered indicator
-  if (isMinimized) {
-    return (
-      <button
-        onClick={() => setIsMinimized(false)}
-        className={cn(
-          'w-full h-full min-h-[120px] flex-1',
-          'flex items-center justify-center gap-2',
-          'text-muted-foreground/40 hover:text-muted-foreground/60',
-          'cursor-pointer group',
-          'transition-colors duration-200',
-          'animate-in fade-in duration-300'
-        )}
-        data-testid={`empty-state-minimized-${columnId}`}
-      >
-        <Eye className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-        <span className="text-xs font-medium">Show guidance</span>
-      </button>
-    );
-  }
 
   // Action button handler
   const handlePrimaryAction = () => {
@@ -108,24 +69,6 @@ export const EmptyStateCard = memo(function EmptyStateCard({
       )}
       data-testid={`empty-state-card-${columnId}`}
     >
-      {/* Dismiss/Minimize controls - appears on hover */}
-      <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={() => setIsMinimized(true)}
-          className="p-1 rounded-md text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
-          title="Minimize guidance"
-        >
-          <EyeOff className="w-3 h-3" />
-        </button>
-        <button
-          onClick={() => setIsDismissed(true)}
-          className="p-1 rounded-md text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
-          title="Dismiss"
-        >
-          <X className="w-3 h-3" />
-        </button>
-      </div>
-
       {/* Icon */}
       <div className="mb-3 text-muted-foreground/30">
         <IconComponent className="w-8 h-8" />
