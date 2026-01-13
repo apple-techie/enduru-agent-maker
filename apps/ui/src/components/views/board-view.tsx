@@ -492,18 +492,104 @@ export function BoardView() {
 
   // Handler for bulk updating multiple features
   const handleBulkUpdate = useCallback(
-    async (updates: Partial<Feature>) => {
+    async (updates: Partial<Feature>, workMode: 'current' | 'auto' | 'custom') => {
       if (!currentProject || selectedFeatureIds.size === 0) return;
 
       try {
+        // Determine final branch name based on work mode:
+        // - 'current': No branch name, work on current branch (no worktree)
+        // - 'auto': Auto-generate branch name based on current branch
+        // - 'custom': Use the provided branch name
+        let finalBranchName: string | undefined;
+
+        if (workMode === 'current') {
+          // No worktree isolation - work directly on current branch
+          finalBranchName = undefined;
+        } else if (workMode === 'auto') {
+          // Auto-generate a branch name based on current branch and timestamp
+          const baseBranch = currentWorktreeBranch || 'main';
+          const timestamp = Date.now();
+          const randomSuffix = Math.random().toString(36).substring(2, 6);
+          finalBranchName = `feature/${baseBranch}-${timestamp}-${randomSuffix}`;
+        } else {
+          // Custom mode - use provided branch name
+          finalBranchName = updates.branchName || undefined;
+        }
+
+        // Create worktree for 'auto' or 'custom' modes when we have a branch name
+        if ((workMode === 'auto' || workMode === 'custom') && finalBranchName) {
+          try {
+            const electronApi = getElectronAPI();
+            if (electronApi?.worktree?.create) {
+              const result = await electronApi.worktree.create(
+                currentProject.path,
+                finalBranchName
+              );
+              if (result.success && result.worktree) {
+                logger.info(
+                  `Worktree for branch "${finalBranchName}" ${
+                    result.worktree?.isNew ? 'created' : 'already exists'
+                  }`
+                );
+                // Auto-select the worktree when creating/using it for bulk update
+                const currentWorktrees = getWorktrees(currentProject.path);
+                const existingWorktree = currentWorktrees.find(
+                  (w) => w.branch === result.worktree.branch
+                );
+
+                // Only add if it doesn't already exist (to avoid duplicates)
+                if (!existingWorktree) {
+                  const newWorktreeInfo = {
+                    path: result.worktree.path,
+                    branch: result.worktree.branch,
+                    isMain: false,
+                    isCurrent: false,
+                    hasWorktree: true,
+                  };
+                  setWorktrees(currentProject.path, [...currentWorktrees, newWorktreeInfo]);
+                }
+                // Select the worktree (whether it existed or was just added)
+                setCurrentWorktree(
+                  currentProject.path,
+                  result.worktree.path,
+                  result.worktree.branch
+                );
+                // Refresh worktree list in UI
+                setWorktreeRefreshKey((k) => k + 1);
+              } else if (!result.success) {
+                logger.error(
+                  `Failed to create worktree for branch "${finalBranchName}":`,
+                  result.error
+                );
+                toast.error('Failed to create worktree', {
+                  description: result.error || 'An error occurred',
+                });
+                return; // Don't proceed with update if worktree creation failed
+              }
+            }
+          } catch (error) {
+            logger.error('Error creating worktree:', error);
+            toast.error('Failed to create worktree', {
+              description: error instanceof Error ? error.message : 'An error occurred',
+            });
+            return; // Don't proceed with update if worktree creation failed
+          }
+        }
+
+        // Use the final branch name in updates
+        const finalUpdates = {
+          ...updates,
+          branchName: finalBranchName,
+        };
+
         const api = getHttpApiClient();
         const featureIds = Array.from(selectedFeatureIds);
-        const result = await api.features.bulkUpdate(currentProject.path, featureIds, updates);
+        const result = await api.features.bulkUpdate(currentProject.path, featureIds, finalUpdates);
 
         if (result.success) {
           // Update local state
           featureIds.forEach((featureId) => {
-            updateFeature(featureId, updates);
+            updateFeature(featureId, finalUpdates);
           });
           toast.success(`Updated ${result.updatedCount} features`);
           exitSelectionMode();
@@ -517,7 +603,17 @@ export function BoardView() {
         toast.error('Failed to update features');
       }
     },
-    [currentProject, selectedFeatureIds, updateFeature, exitSelectionMode]
+    [
+      currentProject,
+      selectedFeatureIds,
+      updateFeature,
+      exitSelectionMode,
+      currentWorktreeBranch,
+      getWorktrees,
+      setWorktrees,
+      setCurrentWorktree,
+      setWorktreeRefreshKey,
+    ]
   );
 
   // Handler for bulk deleting multiple features
@@ -1325,6 +1421,9 @@ export function BoardView() {
         onClose={() => setShowMassEditDialog(false)}
         selectedFeatures={selectedFeatures}
         onApply={handleBulkUpdate}
+        branchSuggestions={branchSuggestions}
+        branchCardCounts={branchCardCounts}
+        currentBranch={currentWorktreeBranch || undefined}
       />
 
       {/* Board Background Modal */}
