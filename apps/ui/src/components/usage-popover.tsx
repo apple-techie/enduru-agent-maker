@@ -14,6 +14,7 @@ const ERROR_CODES = {
   API_BRIDGE_UNAVAILABLE: 'API_BRIDGE_UNAVAILABLE',
   AUTH_ERROR: 'AUTH_ERROR',
   NOT_AVAILABLE: 'NOT_AVAILABLE',
+  TRUST_PROMPT: 'TRUST_PROMPT',
   UNKNOWN: 'UNKNOWN',
 } as const;
 
@@ -108,8 +109,12 @@ export function UsagePopover() {
         }
         const data = await api.claude.getUsage();
         if ('error' in data) {
+          // Detect trust prompt error
+          const isTrustPrompt =
+            data.error === 'Trust prompt pending' ||
+            (data.message && data.message.includes('folder permission'));
           setClaudeError({
-            code: ERROR_CODES.AUTH_ERROR,
+            code: isTrustPrompt ? ERROR_CODES.TRUST_PROMPT : ERROR_CODES.AUTH_ERROR,
             message: data.message || data.error,
           });
           return;
@@ -404,6 +409,11 @@ export function UsagePopover() {
                     <p className="text-xs text-muted-foreground">
                       {claudeError.code === ERROR_CODES.API_BRIDGE_UNAVAILABLE ? (
                         'Ensure the Electron bridge is running or restart the app'
+                      ) : claudeError.code === ERROR_CODES.TRUST_PROMPT ? (
+                        <>
+                          Run <code className="font-mono bg-muted px-1 rounded">claude</code> in
+                          your terminal and approve access to continue
+                        </>
                       ) : (
                         <>
                           Make sure Claude CLI is installed and authenticated via{' '}
