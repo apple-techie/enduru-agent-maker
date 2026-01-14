@@ -1706,8 +1706,12 @@ export class HttpApiClient implements ElectronAPI {
 
   // Worktree API
   worktree: WorktreeAPI = {
-    mergeFeature: (projectPath: string, featureId: string, options?: object) =>
-      this.post('/api/worktree/merge', { projectPath, featureId, options }),
+    mergeFeature: (
+      projectPath: string,
+      branchName: string,
+      worktreePath: string,
+      options?: object
+    ) => this.post('/api/worktree/merge', { projectPath, branchName, worktreePath, options }),
     getInfo: (projectPath: string, featureId: string) =>
       this.post('/api/worktree/info', { projectPath, featureId }),
     getStatus: (projectPath: string, featureId: string) =>

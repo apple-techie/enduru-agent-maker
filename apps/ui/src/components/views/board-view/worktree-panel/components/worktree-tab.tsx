@@ -41,6 +41,7 @@ interface WorktreeTabProps {
   onCreatePR: (worktree: WorktreeInfo) => void;
   onAddressPRComments: (worktree: WorktreeInfo, prInfo: PRInfo) => void;
   onResolveConflicts: (worktree: WorktreeInfo) => void;
+  onMerge: (worktree: WorktreeInfo) => void;
   onDeleteWorktree: (worktree: WorktreeInfo) => void;
   onStartDevServer: (worktree: WorktreeInfo) => void;
   onStopDevServer: (worktree: WorktreeInfo) => void;
@@ -84,6 +85,7 @@ export function WorktreeTab({
   onCreatePR,
   onAddressPRComments,
   onResolveConflicts,
+  onMerge,
   onDeleteWorktree,
   onStartDevServer,
   onStopDevServer,
@@ -344,6 +346,7 @@ export function WorktreeTab({
         onCreatePR={onCreatePR}
         onAddressPRComments={onAddressPRComments}
         onResolveConflicts={onResolveConflicts}
+        onMerge={onMerge}
         onDeleteWorktree={onDeleteWorktree}
         onStartDevServer={onStartDevServer}
         onStopDevServer={onStopDevServer}

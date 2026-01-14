@@ -55,6 +55,7 @@ interface WorktreeActionsDropdownProps {
   onCreatePR: (worktree: WorktreeInfo) => void;
   onAddressPRComments: (worktree: WorktreeInfo, prInfo: PRInfo) => void;
   onResolveConflicts: (worktree: WorktreeInfo) => void;
+  onMerge: (worktree: WorktreeInfo) => void;
   onDeleteWorktree: (worktree: WorktreeInfo) => void;
   onStartDevServer: (worktree: WorktreeInfo) => void;
   onStopDevServer: (worktree: WorktreeInfo) => void;
@@ -84,6 +85,7 @@ export function WorktreeActionsDropdown({
   onCreatePR,
   onAddressPRComments,
   onResolveConflicts,
+  onMerge,
   onDeleteWorktree,
   onStartDevServer,
   onStopDevServer,
@@ -231,6 +233,27 @@ export function WorktreeActionsDropdown({
             {!canPerformGitOps && <AlertCircle className="w-3 h-3 ml-auto text-muted-foreground" />}
           </DropdownMenuItem>
         </TooltipWrapper>
+        {!worktree.isMain && (
+          <TooltipWrapper
+            showTooltip={!!gitOpsDisabledReason}
+            tooltipContent={gitOpsDisabledReason}
+          >
+            <DropdownMenuItem
+              onClick={() => canPerformGitOps && onMerge(worktree)}
+              disabled={!canPerformGitOps}
+              className={cn(
+                'text-xs text-green-600 focus:text-green-700',
+                !canPerformGitOps && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              <GitMerge className="w-3.5 h-3.5 mr-2" />
+              Merge to Main
+              {!canPerformGitOps && (
+                <AlertCircle className="w-3 h-3 ml-auto text-muted-foreground" />
+              )}
+            </DropdownMenuItem>
+          </TooltipWrapper>
+        )}
         <DropdownMenuSeparator />
         {/* Open in editor - split button: click main area for default, chevron for other options */}
         {effectiveDefaultEditor && (

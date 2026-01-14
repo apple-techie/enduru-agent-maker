@@ -58,6 +58,7 @@ import { DeleteWorktreeDialog } from './board-view/dialogs/delete-worktree-dialo
 import { CommitWorktreeDialog } from './board-view/dialogs/commit-worktree-dialog';
 import { CreatePRDialog } from './board-view/dialogs/create-pr-dialog';
 import { CreateBranchDialog } from './board-view/dialogs/create-branch-dialog';
+import { MergeWorktreeDialog } from './board-view/dialogs/merge-worktree-dialog';
 import { WorktreePanel } from './board-view/worktree-panel';
 import type { PRInfo, WorktreeInfo } from './board-view/worktree-panel/types';
 import { COLUMNS, getColumnsWithPipeline } from './board-view/constants';
@@ -148,6 +149,7 @@ export function BoardView() {
   const [showCommitWorktreeDialog, setShowCommitWorktreeDialog] = useState(false);
   const [showCreatePRDialog, setShowCreatePRDialog] = useState(false);
   const [showCreateBranchDialog, setShowCreateBranchDialog] = useState(false);
+  const [showMergeWorktreeDialog, setShowMergeWorktreeDialog] = useState(false);
   const [selectedWorktreeForAction, setSelectedWorktreeForAction] = useState<{
     path: string;
     branch: string;
@@ -1354,6 +1356,10 @@ export function BoardView() {
           }}
           onAddressPRComments={handleAddressPRComments}
           onResolveConflicts={handleResolveConflicts}
+          onMerge={(worktree) => {
+            setSelectedWorktreeForAction(worktree);
+            setShowMergeWorktreeDialog(true);
+          }}
           onRemovedWorktrees={handleRemovedWorktrees}
           runningFeatureIds={runningAutoTasks}
           branchCardCounts={branchCardCounts}
@@ -1684,6 +1690,35 @@ export function BoardView() {
           hookFeatures.forEach((feature) => {
             // Match by branch name since worktreePath is no longer stored
             if (feature.branchName === deletedWorktree.branch) {
+              // Reset the feature's branch assignment - update both local state and persist
+              const updates = {
+                branchName: null as unknown as string | undefined,
+              };
+              updateFeature(feature.id, updates);
+              persistFeatureUpdate(feature.id, updates);
+            }
+          });
+
+          setWorktreeRefreshKey((k) => k + 1);
+          setSelectedWorktreeForAction(null);
+        }}
+      />
+
+      {/* Merge Worktree Dialog */}
+      <MergeWorktreeDialog
+        open={showMergeWorktreeDialog}
+        onOpenChange={setShowMergeWorktreeDialog}
+        projectPath={currentProject.path}
+        worktree={selectedWorktreeForAction}
+        affectedFeatureCount={
+          selectedWorktreeForAction
+            ? hookFeatures.filter((f) => f.branchName === selectedWorktreeForAction.branch).length
+            : 0
+        }
+        onMerged={(mergedWorktree) => {
+          // Reset features that were assigned to the merged worktree (by branch)
+          hookFeatures.forEach((feature) => {
+            if (feature.branchName === mergedWorktree.branch) {
               // Reset the feature's branch assignment - update both local state and persist
               const updates = {
                 branchName: null as unknown as string | undefined,

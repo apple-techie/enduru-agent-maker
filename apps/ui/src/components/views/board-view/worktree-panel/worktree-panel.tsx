@@ -30,6 +30,7 @@ export function WorktreePanel({
   onCreateBranch,
   onAddressPRComments,
   onResolveConflicts,
+  onMerge,
   onRemovedWorktrees,
   runningFeatureIds = [],
   features = [],
@@ -248,10 +249,12 @@ export function WorktreePanel({
             onCreatePR={onCreatePR}
             onAddressPRComments={onAddressPRComments}
             onResolveConflicts={onResolveConflicts}
+            onMerge={onMerge}
             onDeleteWorktree={onDeleteWorktree}
             onStartDevServer={handleStartDevServer}
             onStopDevServer={handleStopDevServer}
             onOpenDevServerUrl={handleOpenDevServerUrl}
+            onViewDevServerLogs={handleViewDevServerLogs}
             onRunInitScript={handleRunInitScript}
             hasInitScript={hasInitScript}
           />
@@ -333,6 +336,7 @@ export function WorktreePanel({
             onCreatePR={onCreatePR}
             onAddressPRComments={onAddressPRComments}
             onResolveConflicts={onResolveConflicts}
+            onMerge={onMerge}
             onDeleteWorktree={onDeleteWorktree}
             onStartDevServer={handleStartDevServer}
             onStopDevServer={handleStopDevServer}
@@ -390,6 +394,7 @@ export function WorktreePanel({
                   onCreatePR={onCreatePR}
                   onAddressPRComments={onAddressPRComments}
                   onResolveConflicts={onResolveConflicts}
+                  onMerge={onMerge}
                   onDeleteWorktree={onDeleteWorktree}
                   onStartDevServer={handleStartDevServer}
                   onStopDevServer={handleStopDevServer}

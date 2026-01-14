@@ -1440,13 +1440,19 @@ function createMockSetupAPI(): SetupAPI {
 // Mock Worktree API implementation
 function createMockWorktreeAPI(): WorktreeAPI {
   return {
-    mergeFeature: async (projectPath: string, featureId: string, options?: object) => {
+    mergeFeature: async (
+      projectPath: string,
+      branchName: string,
+      worktreePath: string,
+      options?: object
+    ) => {
       console.log('[Mock] Merging feature:', {
         projectPath,
-        featureId,
+        branchName,
+        worktreePath,
         options,
       });
-      return { success: true, mergedBranch: `feature/${featureId}` };
+      return { success: true, mergedBranch: branchName };
     },
 
     getInfo: async (projectPath: string, featureId: string) => {

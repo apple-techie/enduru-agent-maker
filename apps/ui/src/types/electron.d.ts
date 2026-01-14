@@ -660,14 +660,14 @@ export interface FileDiffResult {
 }
 
 export interface WorktreeAPI {
-  // Merge feature worktree changes back to main branch
+  // Merge worktree branch into main and clean up
   mergeFeature: (
     projectPath: string,
-    featureId: string,
+    branchName: string,
+    worktreePath: string,
     options?: {
       squash?: boolean;
-      commitMessage?: string;
-      squashMessage?: string;
+      message?: string;
     }
   ) => Promise<{
     success: boolean;
