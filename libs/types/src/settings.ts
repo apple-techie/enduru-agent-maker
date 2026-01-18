@@ -102,6 +102,72 @@ export function getThinkingTokenBudget(level: ThinkingLevel | undefined): number
 export type ModelProvider = 'claude' | 'cursor' | 'codex' | 'opencode';
 
 // ============================================================================
+// Claude API Profiles - Configuration for Claude-compatible API endpoints
+// ============================================================================
+
+/**
+ * ClaudeApiProfile - Configuration for a Claude-compatible API endpoint
+ *
+ * Allows using alternative providers like z.AI GLM, AWS Bedrock, etc.
+ */
+export interface ClaudeApiProfile {
+  /** Unique identifier (uuid) */
+  id: string;
+  /** Display name (e.g., "z.AI GLM", "AWS Bedrock") */
+  name: string;
+  /** ANTHROPIC_BASE_URL - custom API endpoint */
+  baseUrl: string;
+  /** API key value */
+  apiKey: string;
+  /** If true, use ANTHROPIC_AUTH_TOKEN instead of ANTHROPIC_API_KEY */
+  useAuthToken?: boolean;
+  /** API_TIMEOUT_MS override in milliseconds */
+  timeoutMs?: number;
+  /** Optional model name mappings */
+  modelMappings?: {
+    /** Maps to ANTHROPIC_DEFAULT_HAIKU_MODEL */
+    haiku?: string;
+    /** Maps to ANTHROPIC_DEFAULT_SONNET_MODEL */
+    sonnet?: string;
+    /** Maps to ANTHROPIC_DEFAULT_OPUS_MODEL */
+    opus?: string;
+  };
+  /** Set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 */
+  disableNonessentialTraffic?: boolean;
+}
+
+/** Known provider templates for quick setup */
+export interface ClaudeApiProfileTemplate {
+  name: string;
+  baseUrl: string;
+  useAuthToken: boolean;
+  timeoutMs?: number;
+  modelMappings?: ClaudeApiProfile['modelMappings'];
+  disableNonessentialTraffic?: boolean;
+  description: string;
+  apiKeyUrl?: string;
+}
+
+/** Predefined templates for known Claude-compatible providers */
+export const CLAUDE_API_PROFILE_TEMPLATES: ClaudeApiProfileTemplate[] = [
+  {
+    name: 'z.AI GLM',
+    baseUrl: 'https://api.z.ai/api/anthropic',
+    useAuthToken: true,
+    timeoutMs: 3000000,
+    modelMappings: {
+      haiku: 'GLM-4.5-Air',
+      sonnet: 'GLM-4.7',
+      opus: 'GLM-4.7',
+    },
+    disableNonessentialTraffic: true,
+    description: '3× usage at fraction of cost via GLM Coding Plan',
+    apiKeyUrl: 'https://z.ai/manage-apikey/apikey-list',
+  },
+  // Future: Add AWS Bedrock, Google Vertex, etc.
+];
+
+// ============================================================================
 // Event Hooks - Custom actions triggered by system events
 // ============================================================================
 
@@ -650,6 +716,19 @@ export interface GlobalSettings {
    * @see EventHook for configuration details
    */
   eventHooks?: EventHook[];
+
+  // Claude API Profiles Configuration
+  /**
+   * Claude-compatible API endpoint profiles
+   * Allows using alternative providers like z.AI GLM, AWS Bedrock, etc.
+   */
+  claudeApiProfiles?: ClaudeApiProfile[];
+
+  /**
+   * Active profile ID (null/undefined = use direct Anthropic API)
+   * When set, the corresponding profile's settings will be used for Claude API calls
+   */
+  activeClaudeApiProfileId?: string | null;
 }
 
 /**
@@ -896,6 +975,8 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   skillsSources: ['user', 'project'],
   enableSubagents: true,
   subagentsSources: ['user', 'project'],
+  claudeApiProfiles: [],
+  activeClaudeApiProfileId: null,
 };
 
 /** Default credentials (empty strings - user must provide API keys) */

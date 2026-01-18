@@ -12,7 +12,10 @@ import { resolveModelString } from '@automaker/model-resolver';
 import { CLAUDE_MODEL_MAP, type ThinkingLevel } from '@automaker/types';
 import { simpleQuery } from '../../../providers/simple-query-service.js';
 import type { SettingsService } from '../../../services/settings-service.js';
-import { getPromptCustomization } from '../../../lib/settings-helpers.js';
+import {
+  getPromptCustomization,
+  getActiveClaudeApiProfile,
+} from '../../../lib/settings-helpers.js';
 import {
   buildUserPrompt,
   isValidEnhancementMode,
@@ -126,6 +129,9 @@ export function createEnhanceHandler(
 
       logger.debug(`Using model: ${resolvedModel}`);
 
+      // Get active Claude API profile for alternative endpoint configuration
+      const claudeApiProfile = await getActiveClaudeApiProfile(settingsService, '[EnhancePrompt]');
+
       // Use simpleQuery - provider abstraction handles routing to correct provider
       // The system prompt is combined with user prompt since some providers
       // don't have a separate system prompt concept
@@ -137,6 +143,7 @@ export function createEnhanceHandler(
         allowedTools: [],
         thinkingLevel,
         readOnly: true, // Prompt enhancement only generates text, doesn't write files
+        claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
       });
 
       const enhancedText = result.text;

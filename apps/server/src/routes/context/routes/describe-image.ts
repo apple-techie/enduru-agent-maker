@@ -22,6 +22,7 @@ import type { SettingsService } from '../../../services/settings-service.js';
 import {
   getAutoLoadClaudeMdSetting,
   getPromptCustomization,
+  getActiveClaudeApiProfile,
 } from '../../../lib/settings-helpers.js';
 
 const logger = createLogger('DescribeImage');
@@ -284,6 +285,9 @@ export function createDescribeImageHandler(
       // Get customized prompts from settings
       const prompts = await getPromptCustomization(settingsService, '[DescribeImage]');
 
+      // Get active Claude API profile for alternative endpoint configuration
+      const claudeApiProfile = await getActiveClaudeApiProfile(settingsService, '[DescribeImage]');
+
       // Build the instruction text from centralized prompts
       const instructionText = prompts.contextDescription.describeImagePrompt;
 
@@ -325,6 +329,7 @@ export function createDescribeImageHandler(
         thinkingLevel,
         readOnly: true, // Image description only reads, doesn't write
         settingSources: autoLoadClaudeMd ? ['user', 'project', 'local'] : undefined,
+        claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
       });
 
       logger.info(`[${requestId}] simpleQuery completed in ${Date.now() - queryStart}ms`);

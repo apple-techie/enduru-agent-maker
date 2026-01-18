@@ -22,6 +22,7 @@ import type { SettingsService } from '../../../services/settings-service.js';
 import {
   getAutoLoadClaudeMdSetting,
   getPromptCustomization,
+  getActiveClaudeApiProfile,
 } from '../../../lib/settings-helpers.js';
 
 const logger = createLogger('DescribeFile');
@@ -165,6 +166,9 @@ ${contentToAnalyze}`;
 
       logger.info(`Resolved model: ${model}, thinkingLevel: ${thinkingLevel}`);
 
+      // Get active Claude API profile for alternative endpoint configuration
+      const claudeApiProfile = await getActiveClaudeApiProfile(settingsService, '[DescribeFile]');
+
       // Use simpleQuery - provider abstraction handles routing to correct provider
       const result = await simpleQuery({
         prompt,
@@ -175,6 +179,7 @@ ${contentToAnalyze}`;
         thinkingLevel,
         readOnly: true, // File description only reads, doesn't write
         settingSources: autoLoadClaudeMd ? ['user', 'project', 'local'] : undefined,
+        claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
       });
 
       const description = result.text;

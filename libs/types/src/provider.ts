@@ -2,7 +2,7 @@
  * Shared types for AI model providers
  */
 
-import type { ThinkingLevel } from './settings.js';
+import type { ThinkingLevel, ClaudeApiProfile } from './settings.js';
 import type { CodexSandboxMode, CodexApprovalPolicy } from './codex.js';
 
 /**
@@ -209,6 +209,12 @@ export interface ExecuteOptions {
     type: 'json_schema';
     schema: Record<string, unknown>;
   };
+  /**
+   * Active Claude API profile for alternative endpoint configuration.
+   * When set, uses profile's settings (base URL, auth, model mappings) instead of direct Anthropic API.
+   * When undefined, uses direct Anthropic API (via API key or Claude Max CLI OAuth).
+   */
+  claudeApiProfile?: ClaudeApiProfile;
 }
 
 /**

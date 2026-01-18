@@ -41,7 +41,7 @@ import type { FeatureLoader } from './feature-loader.js';
 import { createChatOptions, validateWorkingDirectory } from '../lib/sdk-options.js';
 import { resolveModelString } from '@automaker/model-resolver';
 import { stripProviderPrefix } from '@automaker/types';
-import { getPromptCustomization } from '../lib/settings-helpers.js';
+import { getPromptCustomization, getActiveClaudeApiProfile } from '../lib/settings-helpers.js';
 
 const logger = createLogger('IdeationService');
 
@@ -223,6 +223,12 @@ export class IdeationService {
       // Strip provider prefix - providers need bare model IDs
       const bareModel = stripProviderPrefix(modelId);
 
+      // Get active Claude API profile for alternative endpoint configuration
+      const claudeApiProfile = await getActiveClaudeApiProfile(
+        this.settingsService,
+        '[IdeationService]'
+      );
+
       const executeOptions: ExecuteOptions = {
         prompt: message,
         model: bareModel,
@@ -232,6 +238,7 @@ export class IdeationService {
         maxTurns: 1, // Single turn for ideation
         abortController: activeSession.abortController!,
         conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
+        claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
       };
 
       const stream = provider.executeQuery(executeOptions);
@@ -678,6 +685,12 @@ export class IdeationService {
       // Strip provider prefix - providers need bare model IDs
       const bareModel = stripProviderPrefix(modelId);
 
+      // Get active Claude API profile for alternative endpoint configuration
+      const claudeApiProfile = await getActiveClaudeApiProfile(
+        this.settingsService,
+        '[IdeationService]'
+      );
+
       const executeOptions: ExecuteOptions = {
         prompt: prompt.prompt,
         model: bareModel,
@@ -688,6 +701,7 @@ export class IdeationService {
         // Disable all tools - we just want text generation, not codebase analysis
         allowedTools: [],
         abortController: new AbortController(),
+        claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
       };
 
       const stream = provider.executeQuery(executeOptions);

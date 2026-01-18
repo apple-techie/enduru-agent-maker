@@ -5,7 +5,12 @@
 import type { SettingsService } from '../services/settings-service.js';
 import type { ContextFilesResult, ContextFileInfo } from '@automaker/utils';
 import { createLogger } from '@automaker/utils';
-import type { MCPServerConfig, McpServerConfig, PromptCustomization } from '@automaker/types';
+import type {
+  MCPServerConfig,
+  McpServerConfig,
+  PromptCustomization,
+  ClaudeApiProfile,
+} from '@automaker/types';
 import {
   mergeAutoModePrompts,
   mergeAgentPrompts,
@@ -344,4 +349,48 @@ export async function getCustomSubagents(
   };
 
   return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+/**
+ * Get the active Claude API profile from global settings.
+ * Returns undefined if no profile is active (uses direct Anthropic API).
+ *
+ * @param settingsService - Optional settings service instance
+ * @param logPrefix - Prefix for log messages (e.g., '[AgentService]')
+ * @returns Promise resolving to the active profile, or undefined if none active
+ */
+export async function getActiveClaudeApiProfile(
+  settingsService?: SettingsService | null,
+  logPrefix = '[SettingsHelper]'
+): Promise<ClaudeApiProfile | undefined> {
+  if (!settingsService) {
+    return undefined;
+  }
+
+  try {
+    const globalSettings = await settingsService.getGlobalSettings();
+    const profiles = globalSettings.claudeApiProfiles || [];
+    const activeProfileId = globalSettings.activeClaudeApiProfileId;
+
+    // No active profile selected - use direct Anthropic API
+    if (!activeProfileId) {
+      return undefined;
+    }
+
+    // Find the active profile by ID
+    const activeProfile = profiles.find((p) => p.id === activeProfileId);
+
+    if (activeProfile) {
+      logger.info(`${logPrefix} Using Claude API profile: ${activeProfile.name}`);
+      return activeProfile;
+    } else {
+      logger.warn(
+        `${logPrefix} Active profile ID "${activeProfileId}" not found, falling back to direct Anthropic API`
+      );
+      return undefined;
+    }
+  } catch (error) {
+    logger.error(`${logPrefix} Failed to load Claude API profile:`, error);
+    return undefined;
+  }
 }

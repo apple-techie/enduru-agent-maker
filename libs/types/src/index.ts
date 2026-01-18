@@ -158,6 +158,9 @@ export type {
   EventHookHttpAction,
   EventHookAction,
   EventHook,
+  // Claude API profile types
+  ClaudeApiProfile,
+  ClaudeApiProfileTemplate,
 } from './settings.js';
 export {
   DEFAULT_KEYBOARD_SHORTCUTS,
@@ -172,6 +175,8 @@ export {
   getThinkingTokenBudget,
   // Event hook constants
   EVENT_HOOK_TRIGGER_LABELS,
+  // Claude API profile constants
+  CLAUDE_API_PROFILE_TEMPLATES,
 } from './settings.js';
 
 // Model display constants

@@ -15,7 +15,10 @@ import { resolvePhaseModel } from '@automaker/model-resolver';
 import { streamingQuery } from '../../providers/simple-query-service.js';
 import { getAppSpecPath } from '@automaker/platform';
 import type { SettingsService } from '../../services/settings-service.js';
-import { getAutoLoadClaudeMdSetting } from '../../lib/settings-helpers.js';
+import {
+  getAutoLoadClaudeMdSetting,
+  getActiveClaudeApiProfile,
+} from '../../lib/settings-helpers.js';
 import { FeatureLoader } from '../../services/feature-loader.js';
 import {
   extractImplementedFeatures,
@@ -157,6 +160,9 @@ export async function syncSpec(
     settings?.phaseModels?.specGenerationModel || DEFAULT_PHASE_MODELS.specGenerationModel;
   const { model, thinkingLevel } = resolvePhaseModel(phaseModelEntry);
 
+  // Get active Claude API profile for alternative endpoint configuration
+  const claudeApiProfile = await getActiveClaudeApiProfile(settingsService, '[SpecSync]');
+
   // Use AI to analyze tech stack
   const techAnalysisPrompt = `Analyze this project and return ONLY a JSON object with the current technology stack.
 
@@ -185,6 +191,7 @@ Return ONLY this JSON format, no other text:
       thinkingLevel,
       readOnly: true,
       settingSources: autoLoadClaudeMd ? ['user', 'project', 'local'] : undefined,
+      claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
       onText: (text) => {
         logger.debug(`Tech analysis text: ${text.substring(0, 100)}`);
       },

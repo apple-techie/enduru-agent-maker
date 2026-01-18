@@ -25,7 +25,11 @@ import {
   saveBacklogPlan,
 } from './common.js';
 import type { SettingsService } from '../../services/settings-service.js';
-import { getAutoLoadClaudeMdSetting, getPromptCustomization } from '../../lib/settings-helpers.js';
+import {
+  getAutoLoadClaudeMdSetting,
+  getPromptCustomization,
+  getActiveClaudeApiProfile,
+} from '../../lib/settings-helpers.js';
 
 const featureLoader = new FeatureLoader();
 
@@ -161,6 +165,9 @@ ${userPrompt}`;
       finalSystemPrompt = undefined; // System prompt is now embedded in the user prompt
     }
 
+    // Get active Claude API profile for alternative endpoint configuration
+    const claudeApiProfile = await getActiveClaudeApiProfile(settingsService, '[BacklogPlan]');
+
     // Execute the query
     const stream = provider.executeQuery({
       prompt: finalPrompt,
@@ -173,6 +180,7 @@ ${userPrompt}`;
       settingSources: autoLoadClaudeMd ? ['user', 'project'] : undefined,
       readOnly: true, // Plan generation only generates text, doesn't write files
       thinkingLevel, // Pass thinking level for extended thinking
+      claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
     });
 
     let responseText = '';

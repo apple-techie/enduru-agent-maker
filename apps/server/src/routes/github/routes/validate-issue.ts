@@ -34,7 +34,11 @@ import {
   ValidationComment,
   ValidationLinkedPR,
 } from './validation-schema.js';
-import { getPromptCustomization } from '../../../lib/settings-helpers.js';
+import {
+  getPromptCustomization,
+  getAutoLoadClaudeMdSetting,
+  getActiveClaudeApiProfile,
+} from '../../../lib/settings-helpers.js';
 import {
   trySetValidationRunning,
   clearValidationStatus,
@@ -43,7 +47,6 @@ import {
   logger,
 } from './validation-common.js';
 import type { SettingsService } from '../../../services/settings-service.js';
-import { getAutoLoadClaudeMdSetting } from '../../../lib/settings-helpers.js';
 
 /**
  * Request body for issue validation
@@ -166,6 +169,9 @@ ${basePrompt}`;
 
     logger.info(`Using model: ${model}`);
 
+    // Get active Claude API profile for alternative endpoint configuration
+    const claudeApiProfile = await getActiveClaudeApiProfile(settingsService, '[IssueValidation]');
+
     // Use streamingQuery with event callbacks
     const result = await streamingQuery({
       prompt: finalPrompt,
@@ -177,6 +183,7 @@ ${basePrompt}`;
       reasoningEffort: effectiveReasoningEffort,
       readOnly: true, // Issue validation only reads code, doesn't write
       settingSources: autoLoadClaudeMd ? ['user', 'project', 'local'] : undefined,
+      claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
       outputFormat: useStructuredOutput
         ? {
             type: 'json_schema',

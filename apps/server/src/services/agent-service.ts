@@ -29,6 +29,7 @@ import {
   getSkillsConfiguration,
   getSubagentsConfiguration,
   getCustomSubagents,
+  getActiveClaudeApiProfile,
 } from '../lib/settings-helpers.js';
 
 interface Message {
@@ -274,6 +275,12 @@ export class AgentService {
           ? await getCustomSubagents(this.settingsService, effectiveWorkDir)
           : undefined;
 
+      // Get active Claude API profile for alternative endpoint configuration
+      const claudeApiProfile = await getActiveClaudeApiProfile(
+        this.settingsService,
+        '[AgentService]'
+      );
+
       // Load project context files (CLAUDE.md, CODE_QUALITY.md, etc.) and memory files
       // Use the user's message as task context for smart memory selection
       const contextResult = await loadContextFiles({
@@ -378,6 +385,7 @@ export class AgentService {
         agents: customSubagents, // Pass custom subagents for task delegation
         thinkingLevel: effectiveThinkingLevel, // Pass thinking level for Claude models
         reasoningEffort: effectiveReasoningEffort, // Pass reasoning effort for Codex models
+        claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
       };
 
       // Build prompt content with images

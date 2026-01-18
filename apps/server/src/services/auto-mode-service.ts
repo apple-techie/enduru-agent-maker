@@ -63,6 +63,7 @@ import {
   filterClaudeMdFromContext,
   getMCPServersFromSettings,
   getPromptCustomization,
+  getActiveClaudeApiProfile,
 } from '../lib/settings-helpers.js';
 import { getNotificationService } from './notification-service.js';
 
@@ -1708,6 +1709,9 @@ Format your response as a structured markdown document.`;
         thinkingLevel: analysisThinkingLevel,
       });
 
+      // Get active Claude API profile for alternative endpoint configuration
+      const claudeApiProfile = await getActiveClaudeApiProfile(this.settingsService, '[AutoMode]');
+
       const options: ExecuteOptions = {
         prompt,
         model: sdkOptions.model ?? analysisModel,
@@ -1717,6 +1721,7 @@ Format your response as a structured markdown document.`;
         abortController,
         settingSources: sdkOptions.settingSources,
         thinkingLevel: analysisThinkingLevel, // Pass thinking level
+        claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
       };
 
       const stream = provider.executeQuery(options);
@@ -2536,6 +2541,9 @@ This mock response was generated because AUTOMAKER_MOCK_AGENT=true was set.
       );
     }
 
+    // Get active Claude API profile for alternative endpoint configuration
+    const claudeApiProfile = await getActiveClaudeApiProfile(this.settingsService, '[AutoMode]');
+
     const executeOptions: ExecuteOptions = {
       prompt: promptContent,
       model: bareModel,
@@ -2547,6 +2555,7 @@ This mock response was generated because AUTOMAKER_MOCK_AGENT=true was set.
       settingSources: sdkOptions.settingSources,
       mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined, // Pass MCP servers configuration
       thinkingLevel: options?.thinkingLevel, // Pass thinking level for extended thinking
+      claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
     };
 
     // Execute via provider
@@ -2849,6 +2858,7 @@ After generating the revised spec, output:
                           allowedTools: allowedTools,
                           abortController,
                           mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
+                          claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
                         });
 
                         let revisionText = '';
@@ -2994,6 +3004,7 @@ After generating the revised spec, output:
                       allowedTools: allowedTools,
                       abortController,
                       mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
+                      claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
                     });
 
                     let taskOutput = '';
@@ -3088,6 +3099,7 @@ After generating the revised spec, output:
                     allowedTools: allowedTools,
                     abortController,
                     mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
+                    claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
                   });
 
                   for await (const msg of continuationStream) {
