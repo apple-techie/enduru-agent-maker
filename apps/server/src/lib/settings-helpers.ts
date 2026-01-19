@@ -5,7 +5,12 @@
 import type { SettingsService } from '../services/settings-service.js';
 import type { ContextFilesResult, ContextFileInfo } from '@automaker/utils';
 import { createLogger } from '@automaker/utils';
-import type { MCPServerConfig, McpServerConfig, PromptCustomization } from '@automaker/types';
+import type {
+  MCPServerConfig,
+  McpServerConfig,
+  PromptCustomization,
+  ClaudeApiProfile,
+} from '@automaker/types';
 import {
   mergeAutoModePrompts,
   mergeAgentPrompts,
@@ -344,4 +349,81 @@ export async function getCustomSubagents(
   };
 
   return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+/** Result from getActiveClaudeApiProfile */
+export interface ActiveClaudeApiProfileResult {
+  /** The active profile, or undefined if using direct Anthropic API */
+  profile: ClaudeApiProfile | undefined;
+  /** Credentials for resolving 'credentials' apiKeySource */
+  credentials: import('@automaker/types').Credentials | undefined;
+}
+
+/**
+ * Get the active Claude API profile and credentials from settings.
+ * Checks project settings first for per-project overrides, then falls back to global settings.
+ * Returns both the profile and credentials for resolving 'credentials' apiKeySource.
+ *
+ * @param settingsService - Optional settings service instance
+ * @param logPrefix - Prefix for log messages (e.g., '[AgentService]')
+ * @param projectPath - Optional project path for per-project override
+ * @returns Promise resolving to object with profile and credentials
+ */
+export async function getActiveClaudeApiProfile(
+  settingsService?: SettingsService | null,
+  logPrefix = '[SettingsHelper]',
+  projectPath?: string
+): Promise<ActiveClaudeApiProfileResult> {
+  if (!settingsService) {
+    return { profile: undefined, credentials: undefined };
+  }
+
+  try {
+    const globalSettings = await settingsService.getGlobalSettings();
+    const credentials = await settingsService.getCredentials();
+    const profiles = globalSettings.claudeApiProfiles || [];
+
+    // Check for project-level override first
+    let activeProfileId: string | null | undefined;
+    let isProjectOverride = false;
+
+    if (projectPath) {
+      const projectSettings = await settingsService.getProjectSettings(projectPath);
+      // undefined = use global, null = explicit no profile, string = specific profile
+      if (projectSettings.activeClaudeApiProfileId !== undefined) {
+        activeProfileId = projectSettings.activeClaudeApiProfileId;
+        isProjectOverride = true;
+      }
+    }
+
+    // Fall back to global if project doesn't specify
+    if (activeProfileId === undefined && !isProjectOverride) {
+      activeProfileId = globalSettings.activeClaudeApiProfileId;
+    }
+
+    // No active profile selected - use direct Anthropic API
+    if (!activeProfileId) {
+      if (isProjectOverride && activeProfileId === null) {
+        logger.info(`${logPrefix} Project explicitly using Direct Anthropic API`);
+      }
+      return { profile: undefined, credentials };
+    }
+
+    // Find the active profile by ID
+    const activeProfile = profiles.find((p) => p.id === activeProfileId);
+
+    if (activeProfile) {
+      const overrideSuffix = isProjectOverride ? ' (project override)' : '';
+      logger.info(`${logPrefix} Using Claude API profile: ${activeProfile.name}${overrideSuffix}`);
+      return { profile: activeProfile, credentials };
+    } else {
+      logger.warn(
+        `${logPrefix} Active profile ID "${activeProfileId}" not found, falling back to direct Anthropic API`
+      );
+      return { profile: undefined, credentials };
+    }
+  } catch (error) {
+    logger.error(`${logPrefix} Failed to load Claude API profile:`, error);
+    return { profile: undefined, credentials: undefined };
+  }
 }

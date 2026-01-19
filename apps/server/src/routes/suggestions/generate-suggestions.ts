@@ -15,7 +15,11 @@ import { FeatureLoader } from '../../services/feature-loader.js';
 import { getAppSpecPath } from '@automaker/platform';
 import * as secureFs from '../../lib/secure-fs.js';
 import type { SettingsService } from '../../services/settings-service.js';
-import { getAutoLoadClaudeMdSetting, getPromptCustomization } from '../../lib/settings-helpers.js';
+import {
+  getAutoLoadClaudeMdSetting,
+  getPromptCustomization,
+  getActiveClaudeApiProfile,
+} from '../../lib/settings-helpers.js';
 
 const logger = createLogger('Suggestions');
 
@@ -192,6 +196,13 @@ ${prompts.suggestions.baseTemplate}`;
 
   logger.info('[Suggestions] Using model:', model);
 
+  // Get active Claude API profile for alternative endpoint configuration
+  const { profile: claudeApiProfile, credentials } = await getActiveClaudeApiProfile(
+    settingsService,
+    '[Suggestions]',
+    projectPath
+  );
+
   let responseText = '';
 
   // Determine if we should use structured output (Claude supports it, Cursor doesn't)
@@ -223,6 +234,8 @@ Your entire response should be valid JSON starting with { and ending with }. No 
     thinkingLevel,
     readOnly: true, // Suggestions only reads code, doesn't write
     settingSources: autoLoadClaudeMd ? ['user', 'project', 'local'] : undefined,
+    claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
+    credentials, // Pass credentials for resolving 'credentials' apiKeySource
     outputFormat: useStructuredOutput
       ? {
           type: 'json_schema',

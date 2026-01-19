@@ -2,6 +2,7 @@ import { create } from 'zustand';
 // Note: persist middleware removed - settings now sync via API (use-settings-sync.ts)
 import type { Project, TrashedProject } from '@/lib/electron';
 import { getElectronAPI } from '@/lib/electron';
+import { getHttpApiClient } from '@/lib/http-api-client';
 import { createLogger } from '@automaker/utils/logger';
 import { setItem, getItem } from '@/lib/storage';
 import {
@@ -31,6 +32,7 @@ import type {
   ModelDefinition,
   ServerLogLevel,
   EventHook,
+  ClaudeApiProfile,
 } from '@automaker/types';
 import {
   getAllCursorModelIds,
@@ -747,6 +749,10 @@ export interface AppState {
   // Event Hooks
   eventHooks: EventHook[]; // Event hooks for custom commands or webhooks
 
+  // Claude API Profiles
+  claudeApiProfiles: ClaudeApiProfile[]; // Claude-compatible API endpoint profiles
+  activeClaudeApiProfileId: string | null; // Active profile ID (null = use direct Anthropic API)
+
   // Project Analysis
   projectAnalysis: ProjectAnalysis | null;
   isAnalyzing: boolean;
@@ -1030,6 +1036,9 @@ export interface AppActions {
   getEffectiveFontSans: () => string | null; // Get effective UI font (project override -> global -> null for default)
   getEffectiveFontMono: () => string | null; // Get effective code font (project override -> global -> null for default)
 
+  // Claude API Profile actions (per-project override)
+  setProjectClaudeApiProfile: (projectId: string, profileId: string | null | undefined) => void; // Set per-project Claude API profile (undefined = use global, null = direct API, string = specific profile)
+
   // Feature actions
   setFeatures: (features: Feature[]) => void;
   updateFeature: (id: string, updates: Partial<Feature>) => void;
@@ -1179,6 +1188,13 @@ export interface AppActions {
 
   // Event Hook actions
   setEventHooks: (hooks: EventHook[]) => void;
+
+  // Claude API Profile actions
+  addClaudeApiProfile: (profile: ClaudeApiProfile) => Promise<void>;
+  updateClaudeApiProfile: (id: string, updates: Partial<ClaudeApiProfile>) => Promise<void>;
+  deleteClaudeApiProfile: (id: string) => Promise<void>;
+  setActiveClaudeApiProfile: (id: string | null) => Promise<void>;
+  setClaudeApiProfiles: (profiles: ClaudeApiProfile[]) => Promise<void>;
 
   // MCP Server actions
   addMCPServer: (server: Omit<MCPServerConfig, 'id'>) => void;
@@ -1438,6 +1454,8 @@ const initialState: AppState = {
   subagentsSources: ['user', 'project'] as Array<'user' | 'project'>, // Load from both sources by default
   promptCustomization: {}, // Empty by default - all prompts use built-in defaults
   eventHooks: [], // No event hooks configured by default
+  claudeApiProfiles: [], // No Claude API profiles configured by default
+  activeClaudeApiProfileId: null, // Use direct Anthropic API by default
   projectAnalysis: null,
   isAnalyzing: false,
   boardBackgroundByProject: {},
@@ -1934,6 +1952,47 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
   getEffectiveFontMono: () => {
     const { currentProject, fontFamilyMono } = get();
     return getEffectiveFont(currentProject?.fontFamilyMono, fontFamilyMono, UI_MONO_FONT_OPTIONS);
+  },
+
+  // Claude API Profile actions (per-project override)
+  setProjectClaudeApiProfile: (projectId, profileId) => {
+    // Find the project to get its path for server sync
+    const project = get().projects.find((p) => p.id === projectId);
+    if (!project) {
+      console.error('Cannot set Claude API profile: project not found');
+      return;
+    }
+
+    // Update the project's activeClaudeApiProfileId property
+    // undefined means "use global", null means "explicit direct API", string means specific profile
+    const projects = get().projects.map((p) =>
+      p.id === projectId ? { ...p, activeClaudeApiProfileId: profileId } : p
+    );
+    set({ projects });
+
+    // Also update currentProject if it's the same project
+    const currentProject = get().currentProject;
+    if (currentProject?.id === projectId) {
+      set({
+        currentProject: {
+          ...currentProject,
+          activeClaudeApiProfileId: profileId,
+        },
+      });
+    }
+
+    // Persist to server
+    // Note: undefined means "use global" but JSON doesn't serialize undefined,
+    // so we use a special marker string "__USE_GLOBAL__" to signal deletion
+    const httpClient = getHttpApiClient();
+    const serverValue = profileId === undefined ? '__USE_GLOBAL__' : profileId;
+    httpClient.settings
+      .updateProject(project.path, {
+        activeClaudeApiProfileId: serverValue,
+      })
+      .catch((error) => {
+        console.error('Failed to persist activeClaudeApiProfileId:', error);
+      });
   },
 
   // Feature actions
@@ -2458,6 +2517,82 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
 
   // Event Hook actions
   setEventHooks: (hooks) => set({ eventHooks: hooks }),
+
+  // Claude API Profile actions
+  addClaudeApiProfile: async (profile) => {
+    set({ claudeApiProfiles: [...get().claudeApiProfiles, profile] });
+    // Sync immediately to persist profile
+    const { syncSettingsToServer } = await import('@/hooks/use-settings-migration');
+    await syncSettingsToServer();
+  },
+
+  updateClaudeApiProfile: async (id, updates) => {
+    set({
+      claudeApiProfiles: get().claudeApiProfiles.map((p) =>
+        p.id === id ? { ...p, ...updates } : p
+      ),
+    });
+    // Sync immediately to persist changes
+    const { syncSettingsToServer } = await import('@/hooks/use-settings-migration');
+    await syncSettingsToServer();
+  },
+
+  deleteClaudeApiProfile: async (id) => {
+    const currentActiveId = get().activeClaudeApiProfileId;
+    const projects = get().projects;
+
+    // Find projects that have per-project override referencing the deleted profile
+    const affectedProjects = projects.filter((p) => p.activeClaudeApiProfileId === id);
+
+    // Update state: remove profile and clear references
+    set({
+      claudeApiProfiles: get().claudeApiProfiles.filter((p) => p.id !== id),
+      // Clear global active if the deleted profile was active
+      activeClaudeApiProfileId: currentActiveId === id ? null : currentActiveId,
+      // Clear per-project overrides that reference the deleted profile
+      projects: projects.map((p) =>
+        p.activeClaudeApiProfileId === id ? { ...p, activeClaudeApiProfileId: undefined } : p
+      ),
+    });
+
+    // Also update currentProject if it was using the deleted profile
+    const currentProject = get().currentProject;
+    if (currentProject?.activeClaudeApiProfileId === id) {
+      set({
+        currentProject: { ...currentProject, activeClaudeApiProfileId: undefined },
+      });
+    }
+
+    // Persist per-project changes to server (use __USE_GLOBAL__ marker)
+    const httpClient = getHttpApiClient();
+    await Promise.all(
+      affectedProjects.map((project) =>
+        httpClient.settings
+          .updateProject(project.path, { activeClaudeApiProfileId: '__USE_GLOBAL__' })
+          .catch((error) => {
+            console.error(`Failed to clear profile override for project ${project.name}:`, error);
+          })
+      )
+    );
+
+    // Sync global settings to persist deletion
+    const { syncSettingsToServer } = await import('@/hooks/use-settings-migration');
+    await syncSettingsToServer();
+  },
+
+  setActiveClaudeApiProfile: async (id) => {
+    set({ activeClaudeApiProfileId: id });
+    // Sync immediately to persist active profile change
+    const { syncSettingsToServer } = await import('@/hooks/use-settings-migration');
+    await syncSettingsToServer();
+  },
+
+  setClaudeApiProfiles: async (profiles) => {
+    set({ claudeApiProfiles: profiles });
+    // Sync immediately to persist profiles
+    const { syncSettingsToServer } = await import('@/hooks/use-settings-migration');
+    await syncSettingsToServer();
+  },
 
   // MCP Server actions
   addMCPServer: (server) => {

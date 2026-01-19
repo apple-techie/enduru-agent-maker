@@ -1657,8 +1657,8 @@ export class HttpApiClient implements ElectronAPI {
       this.post('/api/features/delete', { projectPath, featureId }),
     getAgentOutput: (projectPath: string, featureId: string) =>
       this.post('/api/features/agent-output', { projectPath, featureId }),
-    generateTitle: (description: string) =>
-      this.post('/api/features/generate-title', { description }),
+    generateTitle: (description: string, projectPath?: string) =>
+      this.post('/api/features/generate-title', { description, projectPath }),
     bulkUpdate: (projectPath: string, featureIds: string[], updates: Partial<Feature>) =>
       this.post('/api/features/bulk-update', { projectPath, featureIds, updates }),
     bulkDelete: (projectPath: string, featureIds: string[]) =>
@@ -1743,13 +1743,15 @@ export class HttpApiClient implements ElectronAPI {
       originalText: string,
       enhancementMode: string,
       model?: string,
-      thinkingLevel?: string
+      thinkingLevel?: string,
+      projectPath?: string
     ): Promise<EnhancePromptResult> =>
       this.post('/api/enhance-prompt', {
         originalText,
         enhancementMode,
         model,
         thinkingLevel,
+        projectPath,
       }),
   };
 

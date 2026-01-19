@@ -16,7 +16,11 @@ import { streamingQuery } from '../../providers/simple-query-service.js';
 import { generateFeaturesFromSpec } from './generate-features-from-spec.js';
 import { ensureAutomakerDir, getAppSpecPath } from '@automaker/platform';
 import type { SettingsService } from '../../services/settings-service.js';
-import { getAutoLoadClaudeMdSetting, getPromptCustomization } from '../../lib/settings-helpers.js';
+import {
+  getAutoLoadClaudeMdSetting,
+  getPromptCustomization,
+  getActiveClaudeApiProfile,
+} from '../../lib/settings-helpers.js';
 
 const logger = createLogger('SpecRegeneration');
 
@@ -100,6 +104,13 @@ ${prompts.appSpec.structuredSpecInstructions}`;
 
   logger.info('Using model:', model);
 
+  // Get active Claude API profile for alternative endpoint configuration
+  const { profile: claudeApiProfile, credentials } = await getActiveClaudeApiProfile(
+    settingsService,
+    '[SpecRegeneration]',
+    projectPath
+  );
+
   let responseText = '';
   let structuredOutput: SpecOutput | null = null;
 
@@ -132,6 +143,8 @@ Your entire response should be valid JSON starting with { and ending with }. No 
     thinkingLevel,
     readOnly: true, // Spec generation only reads code, we write the spec ourselves
     settingSources: autoLoadClaudeMd ? ['user', 'project', 'local'] : undefined,
+    claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
+    credentials, // Pass credentials for resolving 'credentials' apiKeySource
     outputFormat: useStructuredOutput
       ? {
           type: 'json_schema',

@@ -14,7 +14,11 @@ import { streamingQuery } from '../../providers/simple-query-service.js';
 import { parseAndCreateFeatures } from './parse-and-create-features.js';
 import { getAppSpecPath } from '@automaker/platform';
 import type { SettingsService } from '../../services/settings-service.js';
-import { getAutoLoadClaudeMdSetting, getPromptCustomization } from '../../lib/settings-helpers.js';
+import {
+  getAutoLoadClaudeMdSetting,
+  getPromptCustomization,
+  getActiveClaudeApiProfile,
+} from '../../lib/settings-helpers.js';
 import { FeatureLoader } from '../../services/feature-loader.js';
 
 const logger = createLogger('SpecRegeneration');
@@ -123,6 +127,13 @@ Generate ${featureCount} NEW features that build on each other logically. Rememb
 
   logger.info('Using model:', model);
 
+  // Get active Claude API profile for alternative endpoint configuration
+  const { profile: claudeApiProfile, credentials } = await getActiveClaudeApiProfile(
+    settingsService,
+    '[FeatureGeneration]',
+    projectPath
+  );
+
   // Use streamingQuery with event callbacks
   const result = await streamingQuery({
     prompt,
@@ -134,6 +145,8 @@ Generate ${featureCount} NEW features that build on each other logically. Rememb
     thinkingLevel,
     readOnly: true, // Feature generation only reads code, doesn't write
     settingSources: autoLoadClaudeMd ? ['user', 'project', 'local'] : undefined,
+    claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
+    credentials, // Pass credentials for resolving 'credentials' apiKeySource
     onText: (text) => {
       logger.debug(`Feature text block received (${text.length} chars)`);
       events.emit('spec-regeneration:event', {

@@ -37,6 +37,37 @@ DEFAULT_SERVER_PORT=3008
 WEB_PORT=$DEFAULT_WEB_PORT
 SERVER_PORT=$DEFAULT_SERVER_PORT
 
+# Port validation function
+# Returns 0 if valid, 1 if invalid (with error message printed)
+validate_port() {
+    local port="$1"
+    local port_name="${2:-port}"
+
+    # Check if port is a number
+    if ! [[ "$port" =~ ^[0-9]+$ ]]; then
+        echo "${C_RED}Error:${RESET} $port_name must be a number, got '$port'"
+        return 1
+    fi
+
+    # Check if port is in valid range (1-65535)
+    if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo "${C_RED}Error:${RESET} $port_name must be between 1-65535, got '$port'"
+        return 1
+    fi
+
+    # Check if port is in privileged range (warning only)
+    if [ "$port" -lt 1024 ]; then
+        echo "${C_YELLOW}Warning:${RESET} $port_name $port is in privileged range (requires root/admin)"
+    fi
+
+    return 0
+}
+
+# Hostname configuration
+# Use VITE_HOSTNAME if explicitly set, otherwise default to localhost
+# Note: Don't use $HOSTNAME as it's a bash built-in containing the machine's hostname
+APP_HOST="${VITE_HOSTNAME:-localhost}"
+
 # Extract VERSION from apps/ui/package.json (the actual app version, not monorepo version)
 if command -v node &> /dev/null; then
     VERSION="v$(node -p "require('$SCRIPT_DIR/apps/ui/package.json').version" 2>/dev/null || echo "0.11.0")"
@@ -504,10 +535,23 @@ check_ports() {
                     break
                     ;;
                 [uU]|[uU][sS][eE])
+                    # Collect both ports first
                     read -r -p "Enter web port (default $DEFAULT_WEB_PORT): " input_web
-                    WEB_PORT=${input_web:-$DEFAULT_WEB_PORT}
+                    input_web=${input_web:-$DEFAULT_WEB_PORT}
                     read -r -p "Enter server port (default $DEFAULT_SERVER_PORT): " input_server
-                    SERVER_PORT=${input_server:-$DEFAULT_SERVER_PORT}
+                    input_server=${input_server:-$DEFAULT_SERVER_PORT}
+
+                    # Validate both before assigning either
+                    if ! validate_port "$input_web" "Web port"; then
+                        continue
+                    fi
+                    if ! validate_port "$input_server" "Server port"; then
+                        continue
+                    fi
+
+                    # Assign atomically after both validated
+                    WEB_PORT=$input_web
+                    SERVER_PORT=$input_server
                     echo "${C_GREEN}Using ports: Web=$WEB_PORT, Server=$SERVER_PORT${RESET}"
                     break
                     ;;
@@ -795,12 +839,25 @@ resolve_port_conflicts() {
                 [uU]|[uU][sS][eE])
                     echo ""
                     local input_pad=$(( (TERM_COLS - 40) / 2 ))
+                    # Collect both ports first
                     printf "%${input_pad}s" ""
                     read -r -p "Enter web port (default $DEFAULT_WEB_PORT): " input_web
-                    WEB_PORT=${input_web:-$DEFAULT_WEB_PORT}
+                    input_web=${input_web:-$DEFAULT_WEB_PORT}
                     printf "%${input_pad}s" ""
                     read -r -p "Enter server port (default $DEFAULT_SERVER_PORT): " input_server
-                    SERVER_PORT=${input_server:-$DEFAULT_SERVER_PORT}
+                    input_server=${input_server:-$DEFAULT_SERVER_PORT}
+
+                    # Validate both before assigning either
+                    if ! validate_port "$input_web" "Web port"; then
+                        continue
+                    fi
+                    if ! validate_port "$input_server" "Server port"; then
+                        continue
+                    fi
+
+                    # Assign atomically after both validated
+                    WEB_PORT=$input_web
+                    SERVER_PORT=$input_server
                     center_print "Using ports: Web=$WEB_PORT, Server=$SERVER_PORT" "$C_GREEN"
                     break
                     ;;
@@ -850,7 +907,7 @@ launch_sequence() {
 
     case "$MODE" in
         web)
-            local url="http://localhost:$WEB_PORT"
+            local url="http://${APP_HOST}:$WEB_PORT"
             local upad=$(( (TERM_COLS - ${#url} - 10) / 2 ))
             echo ""
             printf "%${upad}s${DIM}Opening ${C_SEC}%s${RESET}\n" "" "$url"
@@ -1073,10 +1130,15 @@ fi
 case $MODE in
     web)
         export TEST_PORT="$WEB_PORT"
-        export VITE_SERVER_URL="http://$HOSTNAME:$SERVER_PORT"
+        export VITE_SERVER_URL="http://${APP_HOST}:$SERVER_PORT"
         export PORT="$SERVER_PORT"
         export DATA_DIR="$SCRIPT_DIR/data"
-        export CORS_ORIGIN="http://localhost:$WEB_PORT,http://$HOSTNAME:$WEB_PORT,http://127.0.0.1:$WEB_PORT"
+        # Always include localhost and 127.0.0.1 for local dev, plus custom hostname if different
+        CORS_ORIGINS="http://localhost:$WEB_PORT,http://127.0.0.1:$WEB_PORT"
+        if [[ "$APP_HOST" != "localhost" && "$APP_HOST" != "127.0.0.1" ]]; then
+            CORS_ORIGINS="${CORS_ORIGINS},http://${APP_HOST}:$WEB_PORT"
+        fi
+        export CORS_ORIGIN="$CORS_ORIGINS"
         export VITE_APP_MODE="1"
 
         if [ "$PRODUCTION_MODE" = true ]; then
@@ -1092,7 +1154,7 @@ case $MODE in
             max_retries=30
             server_ready=false
             for ((i=0; i<max_retries; i++)); do
-                if curl -s "http://$HOSTNAME:$SERVER_PORT/api/health" > /dev/null 2>&1; then
+                if curl -s "http://localhost:$SERVER_PORT/api/health" > /dev/null 2>&1; then
                     server_ready=true
                     break
                 fi
@@ -1148,7 +1210,7 @@ case $MODE in
             center_print "✓ Server is ready!" "$C_GREEN"
             echo ""
 
-            center_print "The application will be available at: http://localhost:$WEB_PORT" "$C_GREEN"
+            center_print "The application will be available at: http://${APP_HOST}:$WEB_PORT" "$C_GREEN"
             echo ""
 
             # Start web app with Vite dev server (HMR enabled)

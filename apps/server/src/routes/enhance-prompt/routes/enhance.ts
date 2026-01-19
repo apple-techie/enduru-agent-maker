@@ -12,7 +12,10 @@ import { resolveModelString } from '@automaker/model-resolver';
 import { CLAUDE_MODEL_MAP, type ThinkingLevel } from '@automaker/types';
 import { simpleQuery } from '../../../providers/simple-query-service.js';
 import type { SettingsService } from '../../../services/settings-service.js';
-import { getPromptCustomization } from '../../../lib/settings-helpers.js';
+import {
+  getPromptCustomization,
+  getActiveClaudeApiProfile,
+} from '../../../lib/settings-helpers.js';
 import {
   buildUserPrompt,
   isValidEnhancementMode,
@@ -33,6 +36,8 @@ interface EnhanceRequestBody {
   model?: string;
   /** Optional thinking level for Claude models */
   thinkingLevel?: ThinkingLevel;
+  /** Optional project path for per-project Claude API profile */
+  projectPath?: string;
 }
 
 /**
@@ -62,7 +67,7 @@ export function createEnhanceHandler(
 ): (req: Request, res: Response) => Promise<void> {
   return async (req: Request, res: Response): Promise<void> => {
     try {
-      const { originalText, enhancementMode, model, thinkingLevel } =
+      const { originalText, enhancementMode, model, thinkingLevel, projectPath } =
         req.body as EnhanceRequestBody;
 
       // Validate required fields
@@ -126,6 +131,14 @@ export function createEnhanceHandler(
 
       logger.debug(`Using model: ${resolvedModel}`);
 
+      // Get active Claude API profile for alternative endpoint configuration
+      // Uses project-specific profile if projectPath provided, otherwise global
+      const { profile: claudeApiProfile, credentials } = await getActiveClaudeApiProfile(
+        settingsService,
+        '[EnhancePrompt]',
+        projectPath
+      );
+
       // Use simpleQuery - provider abstraction handles routing to correct provider
       // The system prompt is combined with user prompt since some providers
       // don't have a separate system prompt concept
@@ -137,6 +150,8 @@ export function createEnhanceHandler(
         allowedTools: [],
         thinkingLevel,
         readOnly: true, // Prompt enhancement only generates text, doesn't write files
+        claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
+        credentials, // Pass credentials for resolving 'credentials' apiKeySource
       });
 
       const enhancedText = result.text;

@@ -10,7 +10,12 @@ import { BaseProvider } from './base-provider.js';
 import { classifyError, getUserFriendlyErrorMessage, createLogger } from '@automaker/utils';
 
 const logger = createLogger('ClaudeProvider');
-import { getThinkingTokenBudget, validateBareModelId } from '@automaker/types';
+import {
+  getThinkingTokenBudget,
+  validateBareModelId,
+  type ClaudeApiProfile,
+  type Credentials,
+} from '@automaker/types';
 import type {
   ExecuteOptions,
   ProviderMessage,
@@ -21,9 +26,19 @@ import type {
 // Explicit allowlist of environment variables to pass to the SDK.
 // Only these vars are passed - nothing else from process.env leaks through.
 const ALLOWED_ENV_VARS = [
+  // Authentication
   'ANTHROPIC_API_KEY',
-  'ANTHROPIC_BASE_URL',
   'ANTHROPIC_AUTH_TOKEN',
+  // Endpoint configuration
+  'ANTHROPIC_BASE_URL',
+  'API_TIMEOUT_MS',
+  // Model mappings
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  // Traffic control
+  'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC',
+  // System vars (always from process.env)
   'PATH',
   'HOME',
   'SHELL',
@@ -33,16 +48,114 @@ const ALLOWED_ENV_VARS = [
   'LC_ALL',
 ];
 
+// System vars are always passed from process.env regardless of profile
+const SYSTEM_ENV_VARS = ['PATH', 'HOME', 'SHELL', 'TERM', 'USER', 'LANG', 'LC_ALL'];
+
 /**
- * Build environment for the SDK with only explicitly allowed variables
+ * Build environment for the SDK with only explicitly allowed variables.
+ * When a profile is provided, uses profile configuration (clean switch - don't inherit from process.env).
+ * When no profile is provided, uses direct Anthropic API settings from process.env.
+ *
+ * @param profile - Optional Claude API profile for alternative endpoint configuration
+ * @param credentials - Optional credentials object for resolving 'credentials' apiKeySource
  */
-function buildEnv(): Record<string, string | undefined> {
+function buildEnv(
+  profile?: ClaudeApiProfile,
+  credentials?: Credentials
+): Record<string, string | undefined> {
   const env: Record<string, string | undefined> = {};
-  for (const key of ALLOWED_ENV_VARS) {
+
+  if (profile) {
+    // Use profile configuration (clean switch - don't inherit non-system vars from process.env)
+    logger.debug('Building environment from Claude API profile:', {
+      name: profile.name,
+      apiKeySource: profile.apiKeySource ?? 'inline',
+    });
+
+    // Resolve API key based on source strategy
+    let apiKey: string | undefined;
+    const source = profile.apiKeySource ?? 'inline'; // Default to inline for backwards compat
+
+    switch (source) {
+      case 'inline':
+        apiKey = profile.apiKey;
+        break;
+      case 'env':
+        apiKey = process.env.ANTHROPIC_API_KEY;
+        break;
+      case 'credentials':
+        apiKey = credentials?.apiKeys?.anthropic;
+        break;
+    }
+
+    // Warn if no API key found
+    if (!apiKey) {
+      logger.warn(`No API key found for profile "${profile.name}" with source "${source}"`);
+    }
+
+    // Authentication
+    if (profile.useAuthToken) {
+      env['ANTHROPIC_AUTH_TOKEN'] = apiKey;
+    } else {
+      env['ANTHROPIC_API_KEY'] = apiKey;
+    }
+
+    // Endpoint configuration
+    env['ANTHROPIC_BASE_URL'] = profile.baseUrl;
+
+    if (profile.timeoutMs) {
+      env['API_TIMEOUT_MS'] = String(profile.timeoutMs);
+    }
+
+    // Model mappings
+    if (profile.modelMappings?.haiku) {
+      env['ANTHROPIC_DEFAULT_HAIKU_MODEL'] = profile.modelMappings.haiku;
+    }
+    if (profile.modelMappings?.sonnet) {
+      env['ANTHROPIC_DEFAULT_SONNET_MODEL'] = profile.modelMappings.sonnet;
+    }
+    if (profile.modelMappings?.opus) {
+      env['ANTHROPIC_DEFAULT_OPUS_MODEL'] = profile.modelMappings.opus;
+    }
+
+    // Traffic control
+    if (profile.disableNonessentialTraffic) {
+      env['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'] = '1';
+    }
+  } else {
+    // Use direct Anthropic API - pass through credentials or environment variables
+    // This supports:
+    // 1. API Key mode: ANTHROPIC_API_KEY from credentials (UI settings) or env
+    // 2. Claude Max plan: Uses CLI OAuth auth (SDK handles this automatically)
+    // 3. Custom endpoints via ANTHROPIC_BASE_URL env var (backward compatibility)
+    //
+    // Priority: credentials file (UI settings) -> environment variable
+    // Note: Only auth and endpoint vars are passed. Model mappings and traffic
+    // control are NOT passed (those require a profile for explicit configuration).
+    if (credentials?.apiKeys?.anthropic) {
+      env['ANTHROPIC_API_KEY'] = credentials.apiKeys.anthropic;
+    } else if (process.env.ANTHROPIC_API_KEY) {
+      env['ANTHROPIC_API_KEY'] = process.env.ANTHROPIC_API_KEY;
+    }
+    // If using Claude Max plan via CLI auth, the SDK handles auth automatically
+    // when no API key is provided. We don't set ANTHROPIC_AUTH_TOKEN here
+    // unless it was explicitly set in process.env (rare edge case).
+    if (process.env.ANTHROPIC_AUTH_TOKEN) {
+      env['ANTHROPIC_AUTH_TOKEN'] = process.env.ANTHROPIC_AUTH_TOKEN;
+    }
+    // Pass through ANTHROPIC_BASE_URL if set in environment (backward compatibility)
+    if (process.env.ANTHROPIC_BASE_URL) {
+      env['ANTHROPIC_BASE_URL'] = process.env.ANTHROPIC_BASE_URL;
+    }
+  }
+
+  // Always add system vars from process.env
+  for (const key of SYSTEM_ENV_VARS) {
     if (process.env[key]) {
       env[key] = process.env[key];
     }
   }
+
   return env;
 }
 
@@ -70,6 +183,8 @@ export class ClaudeProvider extends BaseProvider {
       conversationHistory,
       sdkSessionId,
       thinkingLevel,
+      claudeApiProfile,
+      credentials,
     } = options;
 
     // Convert thinking level to token budget
@@ -82,7 +197,9 @@ export class ClaudeProvider extends BaseProvider {
       maxTurns,
       cwd,
       // Pass only explicitly allowed environment variables to SDK
-      env: buildEnv(),
+      // When a profile is active, uses profile settings (clean switch)
+      // When no profile, uses direct Anthropic API (from process.env or CLI OAuth)
+      env: buildEnv(claudeApiProfile, credentials),
       // Pass through allowedTools if provided by caller (decided by sdk-options.ts)
       ...(allowedTools && { allowedTools }),
       // AUTONOMOUS MODE: Always bypass permissions for fully autonomous operation

@@ -212,7 +212,7 @@ export function useBoardActions({
         const api = getElectronAPI();
         if (api?.features?.generateTitle) {
           api.features
-            .generateTitle(featureData.description)
+            .generateTitle(featureData.description, projectPath ?? undefined)
             .then((result) => {
               if (result.success && result.title) {
                 const titleUpdates = {
@@ -245,6 +245,7 @@ export function useBoardActions({
       updateFeature,
       saveCategory,
       currentProject,
+      projectPath,
       onWorktreeCreated,
       onWorktreeAutoSelect,
       getPrimaryWorktreeBranch,

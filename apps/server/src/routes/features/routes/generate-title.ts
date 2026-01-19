@@ -10,12 +10,16 @@ import { createLogger } from '@automaker/utils';
 import { CLAUDE_MODEL_MAP } from '@automaker/model-resolver';
 import { simpleQuery } from '../../../providers/simple-query-service.js';
 import type { SettingsService } from '../../../services/settings-service.js';
-import { getPromptCustomization } from '../../../lib/settings-helpers.js';
+import {
+  getPromptCustomization,
+  getActiveClaudeApiProfile,
+} from '../../../lib/settings-helpers.js';
 
 const logger = createLogger('GenerateTitle');
 
 interface GenerateTitleRequestBody {
   description: string;
+  projectPath?: string;
 }
 
 interface GenerateTitleSuccessResponse {
@@ -33,7 +37,7 @@ export function createGenerateTitleHandler(
 ): (req: Request, res: Response) => Promise<void> {
   return async (req: Request, res: Response): Promise<void> => {
     try {
-      const { description } = req.body as GenerateTitleRequestBody;
+      const { description, projectPath } = req.body as GenerateTitleRequestBody;
 
       if (!description || typeof description !== 'string') {
         const response: GenerateTitleErrorResponse = {
@@ -60,6 +64,14 @@ export function createGenerateTitleHandler(
       const prompts = await getPromptCustomization(settingsService, '[GenerateTitle]');
       const systemPrompt = prompts.titleGeneration.systemPrompt;
 
+      // Get active Claude API profile for alternative endpoint configuration
+      // Uses project-specific profile if projectPath provided, otherwise global
+      const { profile: claudeApiProfile, credentials } = await getActiveClaudeApiProfile(
+        settingsService,
+        '[GenerateTitle]',
+        projectPath
+      );
+
       const userPrompt = `Generate a concise title for this feature:\n\n${trimmedDescription}`;
 
       // Use simpleQuery - provider abstraction handles all the streaming/extraction
@@ -69,6 +81,8 @@ export function createGenerateTitleHandler(
         cwd: process.cwd(),
         maxTurns: 1,
         allowedTools: [],
+        claudeApiProfile, // Pass active Claude API profile for alternative endpoint configuration
+        credentials, // Pass credentials for resolving 'credentials' apiKeySource
       });
 
       const title = result.text;

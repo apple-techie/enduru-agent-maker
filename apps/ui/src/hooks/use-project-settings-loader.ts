@@ -23,6 +23,7 @@ export function useProjectSettingsLoader() {
   const setAutoDismissInitScriptIndicator = useAppStore(
     (state) => state.setAutoDismissInitScriptIndicator
   );
+  const setCurrentProject = useAppStore((state) => state.setCurrentProject);
 
   const loadingRef = useRef<string | null>(null);
   const currentProjectRef = useRef<string | null>(null);
@@ -106,6 +107,28 @@ export function useProjectSettingsLoader() {
               requestedProjectPath,
               result.settings.autoDismissInitScriptIndicator
             );
+          }
+
+          // Apply activeClaudeApiProfileId if present
+          // This is stored directly on the project, so we need to update the currentProject
+          // Type assertion needed because API returns Record<string, unknown>
+          const settingsWithProfile = result.settings as Record<string, unknown>;
+          const activeClaudeApiProfileId = settingsWithProfile.activeClaudeApiProfileId as
+            | string
+            | null
+            | undefined;
+          if (activeClaudeApiProfileId !== undefined) {
+            const updatedProject = useAppStore.getState().currentProject;
+            if (
+              updatedProject &&
+              updatedProject.path === requestedProjectPath &&
+              updatedProject.activeClaudeApiProfileId !== activeClaudeApiProfileId
+            ) {
+              setCurrentProject({
+                ...updatedProject,
+                activeClaudeApiProfileId,
+              });
+            }
           }
         }
       } catch (error) {
