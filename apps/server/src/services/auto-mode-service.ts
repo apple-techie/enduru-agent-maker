@@ -2318,18 +2318,12 @@ Format your response as a structured markdown document.`;
         phaseModel: phaseModelEntry,
         provider: analysisClaudeProvider,
         credentials,
-      } = this.settingsService
-        ? await getPhaseModelWithOverrides(
-            'projectAnalysisModel',
-            this.settingsService,
-            projectPath,
-            '[AutoMode]'
-          )
-        : {
-            phaseModel: DEFAULT_PHASE_MODELS.projectAnalysisModel,
-            provider: undefined,
-            credentials: undefined,
-          };
+      } = await getPhaseModelWithOverrides(
+        'projectAnalysisModel',
+        this.settingsService,
+        projectPath,
+        '[AutoMode]'
+      );
       const { model: analysisModel, thinkingLevel: analysisThinkingLevel } =
         resolvePhaseModel(phaseModelEntry);
       logger.info(

@@ -15,6 +15,7 @@ import type {
   PhaseModelEntry,
   Credentials,
 } from '@automaker/types';
+import { DEFAULT_PHASE_MODELS } from '@automaker/types';
 import {
   mergeAutoModePrompts,
   mergeAgentPrompts,
@@ -502,17 +503,28 @@ export interface PhaseModelWithOverridesResult {
  * Also resolves the provider if the phase model has a providerId.
  *
  * @param phase - The phase key (e.g., 'enhancementModel', 'specGenerationModel')
- * @param settingsService - Settings service instance
+ * @param settingsService - Optional settings service instance (returns defaults if undefined)
  * @param projectPath - Optional project path for checking overrides
  * @param logPrefix - Prefix for log messages
  * @returns Promise resolving to phase model with provider info
  */
 export async function getPhaseModelWithOverrides(
   phase: PhaseModelKey,
-  settingsService: SettingsService,
+  settingsService?: SettingsService | null,
   projectPath?: string,
   logPrefix = '[SettingsHelper]'
 ): Promise<PhaseModelWithOverridesResult> {
+  // Handle undefined settingsService gracefully
+  if (!settingsService) {
+    logger.info(`${logPrefix} SettingsService not available, using default for ${phase}`);
+    return {
+      phaseModel: DEFAULT_PHASE_MODELS[phase] || { model: 'sonnet' },
+      isProjectOverride: false,
+      provider: undefined,
+      credentials: undefined,
+    };
+  }
+
   try {
     const globalSettings = await settingsService.getGlobalSettings();
     const credentials = await settingsService.getCredentials();

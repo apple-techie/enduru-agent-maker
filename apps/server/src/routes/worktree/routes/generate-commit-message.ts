@@ -11,7 +11,7 @@ import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { createLogger } from '@automaker/utils';
-import { DEFAULT_PHASE_MODELS, isCursorModel, stripProviderPrefix } from '@automaker/types';
+import { isCursorModel, stripProviderPrefix } from '@automaker/types';
 import { resolvePhaseModel } from '@automaker/model-resolver';
 import { mergeCommitMessagePrompts } from '@automaker/prompts';
 import { ProviderFactory } from '../../../providers/provider-factory.js';
@@ -162,18 +162,12 @@ export function createGenerateCommitMessageHandler(
         phaseModel: phaseModelEntry,
         provider: claudeCompatibleProvider,
         credentials,
-      } = settingsService
-        ? await getPhaseModelWithOverrides(
-            'commitMessageModel',
-            settingsService,
-            worktreePath,
-            '[GenerateCommitMessage]'
-          )
-        : {
-            phaseModel: DEFAULT_PHASE_MODELS.commitMessageModel,
-            provider: undefined,
-            credentials: undefined,
-          };
+      } = await getPhaseModelWithOverrides(
+        'commitMessageModel',
+        settingsService,
+        worktreePath,
+        '[GenerateCommitMessage]'
+      );
       const { model } = resolvePhaseModel(phaseModelEntry);
 
       logger.info(

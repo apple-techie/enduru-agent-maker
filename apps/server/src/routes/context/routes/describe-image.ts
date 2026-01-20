@@ -13,7 +13,7 @@
 
 import type { Request, Response } from 'express';
 import { createLogger, readImageAsBase64 } from '@automaker/utils';
-import { DEFAULT_PHASE_MODELS, isCursorModel } from '@automaker/types';
+import { isCursorModel } from '@automaker/types';
 import { resolvePhaseModel } from '@automaker/model-resolver';
 import { simpleQuery } from '../../../providers/simple-query-service.js';
 import * as secureFs from '../../../lib/secure-fs.js';
@@ -279,18 +279,12 @@ export function createDescribeImageHandler(
         phaseModel: phaseModelEntry,
         provider,
         credentials,
-      } = settingsService
-        ? await getPhaseModelWithOverrides(
-            'imageDescriptionModel',
-            settingsService,
-            cwd,
-            '[DescribeImage]'
-          )
-        : {
-            phaseModel: DEFAULT_PHASE_MODELS.imageDescriptionModel,
-            provider: undefined,
-            credentials: undefined,
-          };
+      } = await getPhaseModelWithOverrides(
+        'imageDescriptionModel',
+        settingsService,
+        cwd,
+        '[DescribeImage]'
+      );
       const { model, thinkingLevel } = resolvePhaseModel(phaseModelEntry);
 
       logger.info(
