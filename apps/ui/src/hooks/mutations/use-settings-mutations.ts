@@ -39,6 +39,9 @@ export function useUpdateGlobalSettings(options: UpdateGlobalSettingsOptions = {
   return useMutation({
     mutationFn: async (settings: Record<string, unknown>) => {
       const api = getElectronAPI();
+      if (!api.settings) {
+        throw new Error('Settings API not available');
+      }
       // Use updateGlobal for partial updates
       const result = await api.settings.updateGlobal(settings);
       if (!result.success) {
@@ -66,33 +69,43 @@ export function useUpdateGlobalSettings(options: UpdateGlobalSettingsOptions = {
  * @param projectPath - Optional path to the project (can also pass via mutation variables)
  * @returns Mutation for updating project settings
  */
+interface ProjectSettingsWithPath {
+  projectPath: string;
+  settings: Record<string, unknown>;
+}
+
 export function useUpdateProjectSettings(projectPath?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (
-      variables:
-        | Record<string, unknown>
-        | { projectPath: string; settings: Record<string, unknown> }
-    ) => {
+    mutationFn: async (variables: Record<string, unknown> | ProjectSettingsWithPath) => {
       // Support both call patterns:
       // 1. useUpdateProjectSettings(projectPath) then mutate(settings)
       // 2. useUpdateProjectSettings() then mutate({ projectPath, settings })
       let path: string;
       let settings: Record<string, unknown>;
 
-      if ('projectPath' in variables && 'settings' in variables) {
+      if (
+        typeof variables === 'object' &&
+        'projectPath' in variables &&
+        'settings' in variables &&
+        typeof variables.projectPath === 'string' &&
+        typeof variables.settings === 'object'
+      ) {
         path = variables.projectPath;
-        settings = variables.settings;
+        settings = variables.settings as Record<string, unknown>;
       } else if (projectPath) {
         path = projectPath;
-        settings = variables;
+        settings = variables as Record<string, unknown>;
       } else {
         throw new Error('Project path is required');
       }
 
       const api = getElectronAPI();
-      const result = await api.settings.setProject(path, settings);
+      if (!api.settings) {
+        throw new Error('Settings API not available');
+      }
+      const result = await api.settings.updateProject(path, settings);
       if (!result.success) {
         throw new Error(result.error || 'Failed to update project settings');
       }
@@ -122,9 +135,12 @@ export function useSaveCredentials() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (credentials: Record<string, string>) => {
+    mutationFn: async (credentials: { anthropic?: string; google?: string; openai?: string }) => {
       const api = getElectronAPI();
-      const result = await api.settings.setCredentials(credentials);
+      if (!api.settings) {
+        throw new Error('Settings API not available');
+      }
+      const result = await api.settings.updateCredentials({ apiKeys: credentials });
       if (!result.success) {
         throw new Error(result.error || 'Failed to save credentials');
       }

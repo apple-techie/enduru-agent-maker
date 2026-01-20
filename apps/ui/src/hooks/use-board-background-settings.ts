@@ -5,6 +5,10 @@ import { useUpdateProjectSettings } from '@/hooks/mutations';
 /**
  * Hook for managing board background settings with automatic persistence to server.
  * Uses React Query mutation for server persistence with automatic error handling.
+ *
+ * For sliders, the modal uses local state during dragging and calls:
+ * - setCardOpacity/setColumnOpacity/setCardBorderOpacity to update store on commit
+ * - persistSettings directly to save to server on commit
  */
 export function useBoardBackgroundSettings() {
   const store = useAppStore();
@@ -65,22 +69,20 @@ export function useBoardBackgroundSettings() {
     [store, persistSettings, getCurrentSettings]
   );
 
+  // Update store (called on slider commit to update the board view)
   const setCardOpacity = useCallback(
-    async (projectPath: string, opacity: number) => {
-      const current = getCurrentSettings(projectPath);
+    (projectPath: string, opacity: number) => {
       store.setCardOpacity(projectPath, opacity);
-      await persistSettings(projectPath, { ...current, cardOpacity: opacity });
     },
-    [store, persistSettings, getCurrentSettings]
+    [store]
   );
 
+  // Update store (called on slider commit to update the board view)
   const setColumnOpacity = useCallback(
-    async (projectPath: string, opacity: number) => {
-      const current = getCurrentSettings(projectPath);
+    (projectPath: string, opacity: number) => {
       store.setColumnOpacity(projectPath, opacity);
-      await persistSettings(projectPath, { ...current, columnOpacity: opacity });
     },
-    [store, persistSettings, getCurrentSettings]
+    [store]
   );
 
   const setColumnBorderEnabled = useCallback(
@@ -119,16 +121,12 @@ export function useBoardBackgroundSettings() {
     [store, persistSettings, getCurrentSettings]
   );
 
+  // Update store (called on slider commit to update the board view)
   const setCardBorderOpacity = useCallback(
-    async (projectPath: string, opacity: number) => {
-      const current = getCurrentSettings(projectPath);
+    (projectPath: string, opacity: number) => {
       store.setCardBorderOpacity(projectPath, opacity);
-      await persistSettings(projectPath, {
-        ...current,
-        cardBorderOpacity: opacity,
-      });
     },
-    [store, persistSettings, getCurrentSettings]
+    [store]
   );
 
   const setHideScrollbar = useCallback(
@@ -170,5 +168,6 @@ export function useBoardBackgroundSettings() {
     setHideScrollbar,
     clearBoardBackground,
     getCurrentSettings,
+    persistSettings,
   };
 }

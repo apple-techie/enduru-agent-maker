@@ -45,6 +45,8 @@ export function BoardBackgroundModal({ open, onOpenChange }: BoardBackgroundModa
     setCardBorderOpacity,
     setHideScrollbar,
     clearBoardBackground,
+    persistSettings,
+    getCurrentSettings,
   } = useBoardBackgroundSettings();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -55,12 +57,31 @@ export function BoardBackgroundModal({ open, onOpenChange }: BoardBackgroundModa
   const backgroundSettings =
     (currentProject && boardBackgroundByProject[currentProject.path]) || defaultBackgroundSettings;
 
-  const cardOpacity = backgroundSettings.cardOpacity;
-  const columnOpacity = backgroundSettings.columnOpacity;
+  // Local state for sliders during dragging (avoids store updates during drag)
+  const [localCardOpacity, setLocalCardOpacity] = useState(backgroundSettings.cardOpacity);
+  const [localColumnOpacity, setLocalColumnOpacity] = useState(backgroundSettings.columnOpacity);
+  const [localCardBorderOpacity, setLocalCardBorderOpacity] = useState(
+    backgroundSettings.cardBorderOpacity
+  );
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Sync local state with store when not dragging (e.g., on modal open or external changes)
+  useEffect(() => {
+    if (!isDragging) {
+      setLocalCardOpacity(backgroundSettings.cardOpacity);
+      setLocalColumnOpacity(backgroundSettings.columnOpacity);
+      setLocalCardBorderOpacity(backgroundSettings.cardBorderOpacity);
+    }
+  }, [
+    isDragging,
+    backgroundSettings.cardOpacity,
+    backgroundSettings.columnOpacity,
+    backgroundSettings.cardBorderOpacity,
+  ]);
+
   const columnBorderEnabled = backgroundSettings.columnBorderEnabled;
   const cardGlassmorphism = backgroundSettings.cardGlassmorphism;
   const cardBorderEnabled = backgroundSettings.cardBorderEnabled;
-  const cardBorderOpacity = backgroundSettings.cardBorderOpacity;
   const hideScrollbar = backgroundSettings.hideScrollbar;
   const imageVersion = backgroundSettings.imageVersion;
 
@@ -198,21 +219,40 @@ export function BoardBackgroundModal({ open, onOpenChange }: BoardBackgroundModa
     }
   }, [currentProject, clearBoardBackground]);
 
-  // Live update opacity when sliders change (with persistence)
-  const handleCardOpacityChange = useCallback(
-    async (value: number[]) => {
+  // Live update local state during drag (modal-only, no store update)
+  const handleCardOpacityChange = useCallback((value: number[]) => {
+    setIsDragging(true);
+    setLocalCardOpacity(value[0]);
+  }, []);
+
+  // Update store and persist when slider is released
+  const handleCardOpacityCommit = useCallback(
+    (value: number[]) => {
       if (!currentProject) return;
-      await setCardOpacity(currentProject.path, value[0]);
+      setIsDragging(false);
+      setCardOpacity(currentProject.path, value[0]);
+      const current = getCurrentSettings(currentProject.path);
+      persistSettings(currentProject.path, { ...current, cardOpacity: value[0] });
     },
-    [currentProject, setCardOpacity]
+    [currentProject, setCardOpacity, getCurrentSettings, persistSettings]
   );
 
-  const handleColumnOpacityChange = useCallback(
-    async (value: number[]) => {
+  // Live update local state during drag (modal-only, no store update)
+  const handleColumnOpacityChange = useCallback((value: number[]) => {
+    setIsDragging(true);
+    setLocalColumnOpacity(value[0]);
+  }, []);
+
+  // Update store and persist when slider is released
+  const handleColumnOpacityCommit = useCallback(
+    (value: number[]) => {
       if (!currentProject) return;
-      await setColumnOpacity(currentProject.path, value[0]);
+      setIsDragging(false);
+      setColumnOpacity(currentProject.path, value[0]);
+      const current = getCurrentSettings(currentProject.path);
+      persistSettings(currentProject.path, { ...current, columnOpacity: value[0] });
     },
-    [currentProject, setColumnOpacity]
+    [currentProject, setColumnOpacity, getCurrentSettings, persistSettings]
   );
 
   const handleColumnBorderToggle = useCallback(
@@ -239,12 +279,22 @@ export function BoardBackgroundModal({ open, onOpenChange }: BoardBackgroundModa
     [currentProject, setCardBorderEnabled]
   );
 
-  const handleCardBorderOpacityChange = useCallback(
-    async (value: number[]) => {
+  // Live update local state during drag (modal-only, no store update)
+  const handleCardBorderOpacityChange = useCallback((value: number[]) => {
+    setIsDragging(true);
+    setLocalCardBorderOpacity(value[0]);
+  }, []);
+
+  // Update store and persist when slider is released
+  const handleCardBorderOpacityCommit = useCallback(
+    (value: number[]) => {
       if (!currentProject) return;
-      await setCardBorderOpacity(currentProject.path, value[0]);
+      setIsDragging(false);
+      setCardBorderOpacity(currentProject.path, value[0]);
+      const current = getCurrentSettings(currentProject.path);
+      persistSettings(currentProject.path, { ...current, cardBorderOpacity: value[0] });
     },
-    [currentProject, setCardBorderOpacity]
+    [currentProject, setCardBorderOpacity, getCurrentSettings, persistSettings]
   );
 
   const handleHideScrollbarToggle = useCallback(
@@ -378,11 +428,12 @@ export function BoardBackgroundModal({ open, onOpenChange }: BoardBackgroundModa
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Card Opacity</Label>
-                <span className="text-sm text-muted-foreground">{cardOpacity}%</span>
+                <span className="text-sm text-muted-foreground">{localCardOpacity}%</span>
               </div>
               <Slider
-                value={[cardOpacity]}
+                value={[localCardOpacity]}
                 onValueChange={handleCardOpacityChange}
+                onValueCommit={handleCardOpacityCommit}
                 min={0}
                 max={100}
                 step={1}
@@ -393,11 +444,12 @@ export function BoardBackgroundModal({ open, onOpenChange }: BoardBackgroundModa
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Column Opacity</Label>
-                <span className="text-sm text-muted-foreground">{columnOpacity}%</span>
+                <span className="text-sm text-muted-foreground">{localColumnOpacity}%</span>
               </div>
               <Slider
-                value={[columnOpacity]}
+                value={[localColumnOpacity]}
                 onValueChange={handleColumnOpacityChange}
+                onValueCommit={handleColumnOpacityCommit}
                 min={0}
                 max={100}
                 step={1}
@@ -446,11 +498,12 @@ export function BoardBackgroundModal({ open, onOpenChange }: BoardBackgroundModa
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Card Border Opacity</Label>
-                  <span className="text-sm text-muted-foreground">{cardBorderOpacity}%</span>
+                  <span className="text-sm text-muted-foreground">{localCardBorderOpacity}%</span>
                 </div>
                 <Slider
-                  value={[cardBorderOpacity]}
+                  value={[localCardBorderOpacity]}
                   onValueChange={handleCardBorderOpacityChange}
+                  onValueCommit={handleCardBorderOpacityCommit}
                   min={0}
                   max={100}
                   step={1}
