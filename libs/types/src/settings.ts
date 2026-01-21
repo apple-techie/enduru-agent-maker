@@ -1182,6 +1182,14 @@ export interface ProjectSettings {
   /** Maximum concurrent agents for this project (overrides global maxConcurrency) */
   maxConcurrentAgents?: number;
 
+  // Test Runner Configuration
+  /**
+   * Custom command to run tests for this project.
+   * If not specified, auto-detection will be used based on project structure.
+   * Examples: "npm test", "yarn test", "pnpm test", "pytest", "go test ./..."
+   */
+  testCommand?: string;
+
   // Phase Model Overrides (per-project)
   /**
    * Override phase model settings for this project.

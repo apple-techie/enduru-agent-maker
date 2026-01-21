@@ -5,7 +5,14 @@ import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDroppable } from '@dnd-kit/core';
-import type { WorktreeInfo, BranchInfo, DevServerInfo, PRInfo, GitRepoStatus } from '../types';
+import type {
+  WorktreeInfo,
+  BranchInfo,
+  DevServerInfo,
+  PRInfo,
+  GitRepoStatus,
+  TestSessionInfo,
+} from '../types';
 import { BranchSwitchDropdown } from './branch-switch-dropdown';
 import { WorktreeActionsDropdown } from './worktree-actions-dropdown';
 
@@ -33,6 +40,12 @@ interface WorktreeTabProps {
   gitRepoStatus: GitRepoStatus;
   /** Whether auto mode is running for this worktree */
   isAutoModeRunning?: boolean;
+  /** Whether tests are being started for this worktree */
+  isStartingTests?: boolean;
+  /** Whether tests are currently running for this worktree */
+  isTestRunning?: boolean;
+  /** Active test session info for this worktree */
+  testSessionInfo?: TestSessionInfo;
   onSelectWorktree: (worktree: WorktreeInfo) => void;
   onBranchDropdownOpenChange: (open: boolean) => void;
   onActionsDropdownOpenChange: (open: boolean) => void;
@@ -59,7 +72,15 @@ interface WorktreeTabProps {
   onViewDevServerLogs: (worktree: WorktreeInfo) => void;
   onRunInitScript: (worktree: WorktreeInfo) => void;
   onToggleAutoMode?: (worktree: WorktreeInfo) => void;
+  /** Start running tests for this worktree */
+  onStartTests?: (worktree: WorktreeInfo) => void;
+  /** Stop running tests for this worktree */
+  onStopTests?: (worktree: WorktreeInfo) => void;
+  /** View test logs for this worktree */
+  onViewTestLogs?: (worktree: WorktreeInfo) => void;
   hasInitScript: boolean;
+  /** Whether a test command is configured in project settings */
+  hasTestCommand?: boolean;
 }
 
 export function WorktreeTab({
@@ -85,6 +106,9 @@ export function WorktreeTab({
   hasRemoteBranch,
   gitRepoStatus,
   isAutoModeRunning = false,
+  isStartingTests = false,
+  isTestRunning = false,
+  testSessionInfo,
   onSelectWorktree,
   onBranchDropdownOpenChange,
   onActionsDropdownOpenChange,
@@ -111,7 +135,11 @@ export function WorktreeTab({
   onViewDevServerLogs,
   onRunInitScript,
   onToggleAutoMode,
+  onStartTests,
+  onStopTests,
+  onViewTestLogs,
   hasInitScript,
+  hasTestCommand = false,
 }: WorktreeTabProps) {
   // Make the worktree tab a drop target for feature cards
   const { setNodeRef, isOver } = useDroppable({
@@ -395,6 +423,10 @@ export function WorktreeTab({
         devServerInfo={devServerInfo}
         gitRepoStatus={gitRepoStatus}
         isAutoModeRunning={isAutoModeRunning}
+        hasTestCommand={hasTestCommand}
+        isStartingTests={isStartingTests}
+        isTestRunning={isTestRunning}
+        testSessionInfo={testSessionInfo}
         onOpenChange={onActionsDropdownOpenChange}
         onPull={onPull}
         onPush={onPush}
@@ -416,6 +448,9 @@ export function WorktreeTab({
         onViewDevServerLogs={onViewDevServerLogs}
         onRunInitScript={onRunInitScript}
         onToggleAutoMode={onToggleAutoMode}
+        onStartTests={onStartTests}
+        onStopTests={onStopTests}
+        onViewTestLogs={onViewTestLogs}
         hasInitScript={hasInitScript}
       />
     </div>

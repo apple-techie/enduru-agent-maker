@@ -1,6 +1,12 @@
 import { useState, useCallback } from 'react';
 
-export type ProjectSettingsViewId = 'identity' | 'theme' | 'worktrees' | 'claude' | 'danger';
+export type ProjectSettingsViewId =
+  | 'identity'
+  | 'theme'
+  | 'worktrees'
+  | 'testing'
+  | 'claude'
+  | 'danger';
 
 interface UseProjectSettingsViewOptions {
   initialView?: ProjectSettingsViewId;

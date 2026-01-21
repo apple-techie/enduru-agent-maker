@@ -1267,6 +1267,107 @@ export interface WorktreeAPI {
     };
     error?: string;
   }>;
+
+  // Test runner methods
+
+  // Start tests for a worktree
+  startTests: (
+    worktreePath: string,
+    options?: { projectPath?: string; testFile?: string }
+  ) => Promise<{
+    success: boolean;
+    result?: {
+      sessionId: string;
+      worktreePath: string;
+      /** The test command being run (from project settings) */
+      command: string;
+      status: TestRunStatus;
+      testFile?: string;
+      message: string;
+    };
+    error?: string;
+  }>;
+
+  // Stop a running test session
+  stopTests: (sessionId: string) => Promise<{
+    success: boolean;
+    result?: {
+      sessionId: string;
+      message: string;
+    };
+    error?: string;
+  }>;
+
+  // Get test logs for a session
+  getTestLogs: (
+    worktreePath?: string,
+    sessionId?: string
+  ) => Promise<{
+    success: boolean;
+    result?: {
+      sessionId: string;
+      worktreePath: string;
+      command: string;
+      status: TestRunStatus;
+      testFile?: string;
+      logs: string;
+      startedAt: string;
+      finishedAt: string | null;
+      exitCode: number | null;
+    };
+    error?: string;
+  }>;
+
+  // Subscribe to test runner events (started, output, completed)
+  onTestRunnerEvent: (
+    callback: (
+      event:
+        | {
+            type: 'test-runner:started';
+            payload: TestRunnerStartedEvent;
+          }
+        | {
+            type: 'test-runner:output';
+            payload: TestRunnerOutputEvent;
+          }
+        | {
+            type: 'test-runner:completed';
+            payload: TestRunnerCompletedEvent;
+          }
+    ) => void
+  ) => () => void;
+}
+
+// Test runner status type
+export type TestRunStatus = 'pending' | 'running' | 'passed' | 'failed' | 'cancelled' | 'error';
+
+// Test runner event payloads
+export interface TestRunnerStartedEvent {
+  sessionId: string;
+  worktreePath: string;
+  /** The test command being run (from project settings) */
+  command: string;
+  testFile?: string;
+  timestamp: string;
+}
+
+export interface TestRunnerOutputEvent {
+  sessionId: string;
+  worktreePath: string;
+  content: string;
+  timestamp: string;
+}
+
+export interface TestRunnerCompletedEvent {
+  sessionId: string;
+  worktreePath: string;
+  /** The test command that was run */
+  command: string;
+  status: TestRunStatus;
+  testFile?: string;
+  exitCode: number | null;
+  duration: number;
+  timestamp: string;
 }
 
 export interface GitAPI {

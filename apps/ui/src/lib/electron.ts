@@ -2063,6 +2063,52 @@ function createMockWorktreeAPI(): WorktreeAPI {
         },
       };
     },
+
+    // Test runner methods
+    startTests: async (
+      worktreePath: string,
+      options?: { projectPath?: string; testFile?: string }
+    ) => {
+      console.log('[Mock] Starting tests:', { worktreePath, options });
+      return {
+        success: true,
+        result: {
+          sessionId: 'mock-session-123',
+          worktreePath,
+          command: 'npm run test',
+          status: 'running' as const,
+          testFile: options?.testFile,
+          message: 'Tests started (mock)',
+        },
+      };
+    },
+
+    stopTests: async (sessionId: string) => {
+      console.log('[Mock] Stopping tests:', { sessionId });
+      return {
+        success: true,
+        result: {
+          sessionId,
+          message: 'Tests stopped (mock)',
+        },
+      };
+    },
+
+    getTestLogs: async (worktreePath?: string, sessionId?: string) => {
+      console.log('[Mock] Getting test logs:', { worktreePath, sessionId });
+      return {
+        success: false,
+        error: 'No test sessions found (mock)',
+      };
+    },
+
+    onTestRunnerEvent: (callback) => {
+      console.log('[Mock] Subscribing to test runner events');
+      // Return unsubscribe function
+      return () => {
+        console.log('[Mock] Unsubscribing from test runner events');
+      };
+    },
   };
 }
 

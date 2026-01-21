@@ -83,6 +83,7 @@ import { createNotificationsRoutes } from './routes/notifications/index.js';
 import { getNotificationService } from './services/notification-service.js';
 import { createEventHistoryRoutes } from './routes/event-history/index.js';
 import { getEventHistoryService } from './services/event-history-service.js';
+import { getTestRunnerService } from './services/test-runner-service.js';
 
 // Load environment variables
 dotenv.config();
@@ -247,6 +248,10 @@ notificationService.setEventEmitter(events);
 
 // Initialize Event History Service
 const eventHistoryService = getEventHistoryService();
+
+// Initialize Test Runner Service with event emitter for real-time test output streaming
+const testRunnerService = getTestRunnerService();
+testRunnerService.setEventEmitter(events);
 
 // Initialize Event Hook Service for custom event triggers (with history storage)
 eventHookService.initialize(events, settingsService, eventHistoryService, featureLoader);

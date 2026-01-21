@@ -6,8 +6,15 @@ import { pathsEqual } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getHttpApiClient } from '@/lib/http-api-client';
 import { useIsMobile } from '@/hooks/use-media-query';
-import { useWorktreeInitScript } from '@/hooks/queries';
-import type { WorktreePanelProps, WorktreeInfo } from './types';
+import { useWorktreeInitScript, useProjectSettings } from '@/hooks/queries';
+import { useTestRunnerEvents } from '@/hooks/use-test-runners';
+import { useTestRunnersStore } from '@/store/test-runners-store';
+import type {
+  TestRunnerStartedEvent,
+  TestRunnerOutputEvent,
+  TestRunnerCompletedEvent,
+} from '@/types/electron';
+import type { WorktreePanelProps, WorktreeInfo, TestSessionInfo } from './types';
 import {
   useWorktrees,
   useDevServers,
@@ -25,6 +32,7 @@ import {
 import { useAppStore } from '@/store/app-store';
 import { ViewWorktreeChangesDialog, PushToRemoteDialog, MergeWorktreeDialog } from '../dialogs';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { TestLogsPanel } from '@/components/ui/test-logs-panel';
 import { Undo2 } from 'lucide-react';
 import { getElectronAPI } from '@/lib/electron';
 
@@ -160,6 +168,191 @@ export function WorktreePanel({
   // Check if init script exists for the project using React Query
   const { data: initScriptData } = useWorktreeInitScript(projectPath);
   const hasInitScript = initScriptData?.exists ?? false;
+
+  // Check if test command is configured in project settings
+  const { data: projectSettings } = useProjectSettings(projectPath);
+  const hasTestCommand = !!projectSettings?.testCommand;
+
+  // Test runner state management
+  // Use the test runners store to get global state for all worktrees
+  const testRunnersStore = useTestRunnersStore();
+  const [isStartingTests, setIsStartingTests] = useState(false);
+
+  // Subscribe to test runner events to update store state in real-time
+  // This ensures the UI updates when tests start, output is received, or tests complete
+  useTestRunnerEvents(
+    // onStarted - a new test run has begun
+    useCallback(
+      (event: TestRunnerStartedEvent) => {
+        testRunnersStore.startSession({
+          sessionId: event.sessionId,
+          worktreePath: event.worktreePath,
+          command: event.command,
+          status: 'running',
+          testFile: event.testFile,
+          startedAt: event.timestamp,
+        });
+      },
+      [testRunnersStore]
+    ),
+    // onOutput - test output received
+    useCallback(
+      (event: TestRunnerOutputEvent) => {
+        testRunnersStore.appendOutput(event.sessionId, event.content);
+      },
+      [testRunnersStore]
+    ),
+    // onCompleted - test run finished
+    useCallback(
+      (event: TestRunnerCompletedEvent) => {
+        testRunnersStore.completeSession(
+          event.sessionId,
+          event.status,
+          event.exitCode,
+          event.duration
+        );
+        // Show toast notification for test completion
+        const statusEmoji =
+          event.status === 'passed' ? '✅' : event.status === 'failed' ? '❌' : '⏹️';
+        const statusText =
+          event.status === 'passed' ? 'passed' : event.status === 'failed' ? 'failed' : 'stopped';
+        toast(`${statusEmoji} Tests ${statusText}`, {
+          description: `Exit code: ${event.exitCode ?? 'N/A'}`,
+          duration: 4000,
+        });
+      },
+      [testRunnersStore]
+    )
+  );
+
+  // Test logs panel state
+  const [testLogsPanelOpen, setTestLogsPanelOpen] = useState(false);
+  const [testLogsPanelWorktree, setTestLogsPanelWorktree] = useState<WorktreeInfo | null>(null);
+
+  // Helper to check if tests are running for a specific worktree
+  const isTestRunningForWorktree = useCallback(
+    (worktree: WorktreeInfo): boolean => {
+      return testRunnersStore.isWorktreeRunning(worktree.path);
+    },
+    [testRunnersStore]
+  );
+
+  // Helper to get test session info for a specific worktree
+  const getTestSessionInfo = useCallback(
+    (worktree: WorktreeInfo): TestSessionInfo | undefined => {
+      const session = testRunnersStore.getActiveSession(worktree.path);
+      if (!session) {
+        // Check for completed sessions to show last result
+        const allSessions = Object.values(testRunnersStore.sessions).filter(
+          (s) => s.worktreePath === worktree.path
+        );
+        const lastSession = allSessions.sort(
+          (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+        )[0];
+        if (lastSession) {
+          return {
+            sessionId: lastSession.sessionId,
+            worktreePath: lastSession.worktreePath,
+            command: lastSession.command,
+            status: lastSession.status as TestSessionInfo['status'],
+            testFile: lastSession.testFile,
+            startedAt: lastSession.startedAt,
+            finishedAt: lastSession.finishedAt,
+            exitCode: lastSession.exitCode,
+            duration: lastSession.duration,
+          };
+        }
+        return undefined;
+      }
+      return {
+        sessionId: session.sessionId,
+        worktreePath: session.worktreePath,
+        command: session.command,
+        status: session.status as TestSessionInfo['status'],
+        testFile: session.testFile,
+        startedAt: session.startedAt,
+        finishedAt: session.finishedAt,
+        exitCode: session.exitCode,
+        duration: session.duration,
+      };
+    },
+    [testRunnersStore]
+  );
+
+  // Handler to start tests for a worktree
+  const handleStartTests = useCallback(async (worktree: WorktreeInfo) => {
+    setIsStartingTests(true);
+    try {
+      const api = getElectronAPI();
+      if (!api?.worktree?.startTests) {
+        toast.error('Test runner API not available');
+        return;
+      }
+
+      const result = await api.worktree.startTests(worktree.path, { projectPath });
+      if (result.success) {
+        toast.success('Tests started', {
+          description: `Running tests in ${worktree.branch}`,
+        });
+      } else {
+        toast.error('Failed to start tests', {
+          description: result.error || 'Unknown error',
+        });
+      }
+    } catch (error) {
+      toast.error('Failed to start tests', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
+      setIsStartingTests(false);
+    }
+  }, []);
+
+  // Handler to stop tests for a worktree
+  const handleStopTests = useCallback(
+    async (worktree: WorktreeInfo) => {
+      try {
+        const session = testRunnersStore.getActiveSession(worktree.path);
+        if (!session) {
+          toast.error('No active test session to stop');
+          return;
+        }
+
+        const api = getElectronAPI();
+        if (!api?.worktree?.stopTests) {
+          toast.error('Test runner API not available');
+          return;
+        }
+
+        const result = await api.worktree.stopTests(session.sessionId);
+        if (result.success) {
+          toast.success('Tests stopped', {
+            description: `Stopped tests in ${worktree.branch}`,
+          });
+        } else {
+          toast.error('Failed to stop tests', {
+            description: result.error || 'Unknown error',
+          });
+        }
+      } catch (error) {
+        toast.error('Failed to stop tests', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    },
+    [testRunnersStore]
+  );
+
+  // Handler to view test logs for a worktree
+  const handleViewTestLogs = useCallback((worktree: WorktreeInfo) => {
+    setTestLogsPanelWorktree(worktree);
+    setTestLogsPanelOpen(true);
+  }, []);
+
+  // Handler to close test logs panel
+  const handleCloseTestLogsPanel = useCallback(() => {
+    setTestLogsPanelOpen(false);
+  }, []);
 
   // View changes dialog state
   const [viewChangesDialogOpen, setViewChangesDialogOpen] = useState(false);
@@ -392,6 +585,10 @@ export function WorktreePanel({
             devServerInfo={getDevServerInfo(selectedWorktree)}
             gitRepoStatus={gitRepoStatus}
             isAutoModeRunning={isAutoModeRunningForWorktree(selectedWorktree)}
+            hasTestCommand={hasTestCommand}
+            isStartingTests={isStartingTests}
+            isTestRunning={isTestRunningForWorktree(selectedWorktree)}
+            testSessionInfo={getTestSessionInfo(selectedWorktree)}
             onOpenChange={handleActionsDropdownOpenChange(selectedWorktree)}
             onPull={handlePull}
             onPush={handlePush}
@@ -413,7 +610,11 @@ export function WorktreePanel({
             onViewDevServerLogs={handleViewDevServerLogs}
             onRunInitScript={handleRunInitScript}
             onToggleAutoMode={handleToggleAutoMode}
+            onStartTests={handleStartTests}
+            onStopTests={handleStopTests}
+            onViewTestLogs={handleViewTestLogs}
             hasInitScript={hasInitScript}
+            hasTestCommand={hasTestCommand}
           />
         )}
 
@@ -494,6 +695,17 @@ export function WorktreePanel({
           onMerged={handleMerged}
           onCreateConflictResolutionFeature={onCreateMergeConflictResolutionFeature}
         />
+
+        {/* Test Logs Panel */}
+        <TestLogsPanel
+          open={testLogsPanelOpen}
+          onClose={handleCloseTestLogsPanel}
+          worktreePath={testLogsPanelWorktree?.path ?? null}
+          branch={testLogsPanelWorktree?.branch}
+          onStopTests={
+            testLogsPanelWorktree ? () => handleStopTests(testLogsPanelWorktree) : undefined
+          }
+        />
       </div>
     );
   }
@@ -530,6 +742,9 @@ export function WorktreePanel({
             hasRemoteBranch={hasRemoteBranch}
             gitRepoStatus={gitRepoStatus}
             isAutoModeRunning={isAutoModeRunningForWorktree(mainWorktree)}
+            isStartingTests={isStartingTests}
+            isTestRunning={isTestRunningForWorktree(mainWorktree)}
+            testSessionInfo={getTestSessionInfo(mainWorktree)}
             onSelectWorktree={handleSelectWorktree}
             onBranchDropdownOpenChange={handleBranchDropdownOpenChange(mainWorktree)}
             onActionsDropdownOpenChange={handleActionsDropdownOpenChange(mainWorktree)}
@@ -556,7 +771,11 @@ export function WorktreePanel({
             onViewDevServerLogs={handleViewDevServerLogs}
             onRunInitScript={handleRunInitScript}
             onToggleAutoMode={handleToggleAutoMode}
+            onStartTests={handleStartTests}
+            onStopTests={handleStopTests}
+            onViewTestLogs={handleViewTestLogs}
             hasInitScript={hasInitScript}
+            hasTestCommand={hasTestCommand}
           />
         )}
       </div>
@@ -596,6 +815,9 @@ export function WorktreePanel({
                   hasRemoteBranch={hasRemoteBranch}
                   gitRepoStatus={gitRepoStatus}
                   isAutoModeRunning={isAutoModeRunningForWorktree(worktree)}
+                  isStartingTests={isStartingTests}
+                  isTestRunning={isTestRunningForWorktree(worktree)}
+                  testSessionInfo={getTestSessionInfo(worktree)}
                   onSelectWorktree={handleSelectWorktree}
                   onBranchDropdownOpenChange={handleBranchDropdownOpenChange(worktree)}
                   onActionsDropdownOpenChange={handleActionsDropdownOpenChange(worktree)}
@@ -622,7 +844,11 @@ export function WorktreePanel({
                   onViewDevServerLogs={handleViewDevServerLogs}
                   onRunInitScript={handleRunInitScript}
                   onToggleAutoMode={handleToggleAutoMode}
+                  onStartTests={handleStartTests}
+                  onStopTests={handleStopTests}
+                  onViewTestLogs={handleViewTestLogs}
                   hasInitScript={hasInitScript}
+                  hasTestCommand={hasTestCommand}
                 />
               );
             })}
@@ -702,6 +928,17 @@ export function WorktreePanel({
         worktree={mergeWorktree}
         onMerged={handleMerged}
         onCreateConflictResolutionFeature={onCreateMergeConflictResolutionFeature}
+      />
+
+      {/* Test Logs Panel */}
+      <TestLogsPanel
+        open={testLogsPanelOpen}
+        onClose={handleCloseTestLogsPanel}
+        worktreePath={testLogsPanelWorktree?.path ?? null}
+        branch={testLogsPanelWorktree?.branch}
+        onStopTests={
+          testLogsPanelWorktree ? () => handleStopTests(testLogsPanelWorktree) : undefined
+        }
       />
     </div>
   );

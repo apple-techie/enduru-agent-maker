@@ -8,4 +8,18 @@ export { useOSDetection, type OperatingSystem, type OSDetectionResult } from './
 export { useResponsiveKanban } from './use-responsive-kanban';
 export { useScrollTracking } from './use-scroll-tracking';
 export { useSettingsMigration } from './use-settings-migration';
+export {
+  useTestRunners,
+  useTestRunnerEvents,
+  type StartTestOptions,
+  type StartTestResult,
+  type StopTestResult,
+  type TestSession,
+} from './use-test-runners';
+export {
+  useTestLogs,
+  useTestLogEvents,
+  type TestLogState,
+  type UseTestLogsOptions,
+} from './use-test-logs';
 export { useWindowState } from './use-window-state';

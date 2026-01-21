@@ -562,6 +562,9 @@ type EventType =
   | 'dev-server:started'
   | 'dev-server:output'
   | 'dev-server:stopped'
+  | 'test-runner:started'
+  | 'test-runner:output'
+  | 'test-runner:completed'
   | 'notification:created';
 
 /**
@@ -594,6 +597,44 @@ export type DevServerLogEvent =
   | { type: 'dev-server:stopped'; payload: DevServerStoppedEvent };
 
 /**
+ * Test runner event payloads for WebSocket streaming
+ */
+export type TestRunStatus = 'pending' | 'running' | 'passed' | 'failed' | 'cancelled' | 'error';
+
+export interface TestRunnerStartedEvent {
+  sessionId: string;
+  worktreePath: string;
+  /** The test command being run (from project settings) */
+  command: string;
+  testFile?: string;
+  timestamp: string;
+}
+
+export interface TestRunnerOutputEvent {
+  sessionId: string;
+  worktreePath: string;
+  content: string;
+  timestamp: string;
+}
+
+export interface TestRunnerCompletedEvent {
+  sessionId: string;
+  worktreePath: string;
+  /** The test command that was run */
+  command: string;
+  status: TestRunStatus;
+  testFile?: string;
+  exitCode: number | null;
+  duration: number;
+  timestamp: string;
+}
+
+export type TestRunnerEvent =
+  | { type: 'test-runner:started'; payload: TestRunnerStartedEvent }
+  | { type: 'test-runner:output'; payload: TestRunnerOutputEvent }
+  | { type: 'test-runner:completed'; payload: TestRunnerCompletedEvent };
+
+/**
  * Response type for fetching dev server logs
  */
 export interface DevServerLogsResponse {
@@ -604,6 +645,26 @@ export interface DevServerLogsResponse {
     url: string;
     logs: string;
     startedAt: string;
+  };
+  error?: string;
+}
+
+/**
+ * Response type for fetching test logs
+ */
+export interface TestLogsResponse {
+  success: boolean;
+  result?: {
+    sessionId: string;
+    worktreePath: string;
+    /** The test command that was/is being run */
+    command: string;
+    status: TestRunStatus;
+    testFile?: string;
+    logs: string;
+    startedAt: string;
+    finishedAt: string | null;
+    exitCode: number | null;
   };
   error?: string;
 }
@@ -1885,6 +1946,32 @@ export class HttpApiClient implements ElectronAPI {
         unsub3();
       };
     },
+    // Test runner methods
+    startTests: (worktreePath: string, options?: { projectPath?: string; testFile?: string }) =>
+      this.post('/api/worktree/start-tests', { worktreePath, ...options }),
+    stopTests: (sessionId: string) => this.post('/api/worktree/stop-tests', { sessionId }),
+    getTestLogs: (worktreePath?: string, sessionId?: string): Promise<TestLogsResponse> => {
+      const params = new URLSearchParams();
+      if (worktreePath) params.append('worktreePath', worktreePath);
+      if (sessionId) params.append('sessionId', sessionId);
+      return this.get(`/api/worktree/test-logs?${params.toString()}`);
+    },
+    onTestRunnerEvent: (callback: (event: TestRunnerEvent) => void) => {
+      const unsub1 = this.subscribeToEvent('test-runner:started', (payload) =>
+        callback({ type: 'test-runner:started', payload: payload as TestRunnerStartedEvent })
+      );
+      const unsub2 = this.subscribeToEvent('test-runner:output', (payload) =>
+        callback({ type: 'test-runner:output', payload: payload as TestRunnerOutputEvent })
+      );
+      const unsub3 = this.subscribeToEvent('test-runner:completed', (payload) =>
+        callback({ type: 'test-runner:completed', payload: payload as TestRunnerCompletedEvent })
+      );
+      return () => {
+        unsub1();
+        unsub2();
+        unsub3();
+      };
+    },
   };
 
   // Git API
@@ -2246,6 +2333,7 @@ export class HttpApiClient implements ElectronAPI {
         defaultDeleteBranchWithWorktree?: boolean;
         autoDismissInitScriptIndicator?: boolean;
         lastSelectedSessionId?: string;
+        testCommand?: string;
       };
       error?: string;
     }> => this.post('/api/settings/project', { projectPath }),

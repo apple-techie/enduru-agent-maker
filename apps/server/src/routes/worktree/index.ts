@@ -42,6 +42,9 @@ import { createStartDevHandler } from './routes/start-dev.js';
 import { createStopDevHandler } from './routes/stop-dev.js';
 import { createListDevServersHandler } from './routes/list-dev-servers.js';
 import { createGetDevServerLogsHandler } from './routes/dev-server-logs.js';
+import { createStartTestsHandler } from './routes/start-tests.js';
+import { createStopTestsHandler } from './routes/stop-tests.js';
+import { createGetTestLogsHandler } from './routes/test-logs.js';
 import {
   createGetInitScriptHandler,
   createPutInitScriptHandler,
@@ -139,6 +142,15 @@ export function createWorktreeRoutes(
     validatePathParams('worktreePath'),
     createGetDevServerLogsHandler()
   );
+
+  // Test runner routes
+  router.post(
+    '/start-tests',
+    validatePathParams('worktreePath'),
+    createStartTestsHandler(settingsService)
+  );
+  router.post('/stop-tests', createStopTestsHandler());
+  router.get('/test-logs', createGetTestLogsHandler());
 
   // Init script routes
   router.get('/init-script', createGetInitScriptHandler());

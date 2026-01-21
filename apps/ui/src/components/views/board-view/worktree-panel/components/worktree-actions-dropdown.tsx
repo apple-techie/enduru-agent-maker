@@ -33,10 +33,11 @@ import {
   SplitSquareHorizontal,
   Undo2,
   Zap,
+  FlaskConical,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { WorktreeInfo, DevServerInfo, PRInfo, GitRepoStatus } from '../types';
+import type { WorktreeInfo, DevServerInfo, PRInfo, GitRepoStatus, TestSessionInfo } from '../types';
 import { TooltipWrapper } from './tooltip-wrapper';
 import { useAvailableEditors, useEffectiveDefaultEditor } from '../hooks/use-available-editors';
 import {
@@ -63,6 +64,14 @@ interface WorktreeActionsDropdownProps {
   standalone?: boolean;
   /** Whether auto mode is running for this worktree */
   isAutoModeRunning?: boolean;
+  /** Whether a test command is configured in project settings */
+  hasTestCommand?: boolean;
+  /** Whether tests are being started for this worktree */
+  isStartingTests?: boolean;
+  /** Whether tests are currently running for this worktree */
+  isTestRunning?: boolean;
+  /** Active test session info for this worktree */
+  testSessionInfo?: TestSessionInfo;
   onOpenChange: (open: boolean) => void;
   onPull: (worktree: WorktreeInfo) => void;
   onPush: (worktree: WorktreeInfo) => void;
@@ -84,6 +93,12 @@ interface WorktreeActionsDropdownProps {
   onRunInitScript: (worktree: WorktreeInfo) => void;
   onToggleAutoMode?: (worktree: WorktreeInfo) => void;
   onMerge: (worktree: WorktreeInfo) => void;
+  /** Start running tests for this worktree */
+  onStartTests?: (worktree: WorktreeInfo) => void;
+  /** Stop running tests for this worktree */
+  onStopTests?: (worktree: WorktreeInfo) => void;
+  /** View test logs for this worktree */
+  onViewTestLogs?: (worktree: WorktreeInfo) => void;
   hasInitScript: boolean;
 }
 
@@ -101,6 +116,10 @@ export function WorktreeActionsDropdown({
   gitRepoStatus,
   standalone = false,
   isAutoModeRunning = false,
+  hasTestCommand = false,
+  isStartingTests = false,
+  isTestRunning = false,
+  testSessionInfo,
   onOpenChange,
   onPull,
   onPush,
@@ -122,6 +141,9 @@ export function WorktreeActionsDropdown({
   onRunInitScript,
   onToggleAutoMode,
   onMerge,
+  onStartTests,
+  onStopTests,
+  onViewTestLogs,
   hasInitScript,
 }: WorktreeActionsDropdownProps) {
   // Get available editors for the "Open In" submenu
@@ -229,6 +251,65 @@ export function WorktreeActionsDropdown({
               {isStartingDevServer ? 'Starting...' : 'Start Dev Server'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+          </>
+        )}
+        {/* Test Runner section - only show when test command is configured */}
+        {hasTestCommand && onStartTests && (
+          <>
+            {isTestRunning ? (
+              <>
+                <DropdownMenuLabel className="text-xs flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  Tests Running
+                </DropdownMenuLabel>
+                {onViewTestLogs && (
+                  <DropdownMenuItem onClick={() => onViewTestLogs(worktree)} className="text-xs">
+                    <ScrollText className="w-3.5 h-3.5 mr-2" />
+                    View Test Logs
+                  </DropdownMenuItem>
+                )}
+                {onStopTests && (
+                  <DropdownMenuItem
+                    onClick={() => onStopTests(worktree)}
+                    className="text-xs text-destructive focus:text-destructive"
+                  >
+                    <Square className="w-3.5 h-3.5 mr-2" />
+                    Stop Tests
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+              </>
+            ) : (
+              <>
+                <DropdownMenuItem
+                  onClick={() => onStartTests(worktree)}
+                  disabled={isStartingTests}
+                  className="text-xs"
+                >
+                  <FlaskConical
+                    className={cn('w-3.5 h-3.5 mr-2', isStartingTests && 'animate-pulse')}
+                  />
+                  {isStartingTests ? 'Starting Tests...' : 'Run Tests'}
+                </DropdownMenuItem>
+                {onViewTestLogs && testSessionInfo && (
+                  <DropdownMenuItem onClick={() => onViewTestLogs(worktree)} className="text-xs">
+                    <ScrollText className="w-3.5 h-3.5 mr-2" />
+                    View Last Test Results
+                    {testSessionInfo.status === 'passed' && (
+                      <span className="ml-auto text-[10px] bg-green-500/20 text-green-600 px-1.5 py-0.5 rounded">
+                        passed
+                      </span>
+                    )}
+                    {testSessionInfo.status === 'failed' && (
+                      <span className="ml-auto text-[10px] bg-red-500/20 text-red-600 px-1.5 py-0.5 rounded">
+                        failed
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+              </>
+            )}
           </>
         )}
         {/* Auto Mode toggle */}

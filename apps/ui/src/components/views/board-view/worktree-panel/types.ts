@@ -30,6 +30,19 @@ export interface DevServerInfo {
   url: string;
 }
 
+export interface TestSessionInfo {
+  sessionId: string;
+  worktreePath: string;
+  /** The test command being run (from project settings) */
+  command: string;
+  status: 'pending' | 'running' | 'passed' | 'failed' | 'cancelled';
+  testFile?: string;
+  startedAt: string;
+  finishedAt?: string;
+  exitCode?: number | null;
+  duration?: number;
+}
+
 export interface FeatureInfo {
   id: string;
   branchName?: string;
