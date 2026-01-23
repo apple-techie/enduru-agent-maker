@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { NavigateOptions } from '@tanstack/react-router';
 import { ChevronDown, Wrench, Github } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatShortcut } from '@/store/app-store';
+import { formatShortcut, useAppStore } from '@/store/app-store';
 import type { NavSection } from '../types';
 import type { Project } from '@/lib/electron';
+import type { SidebarStyle } from '@automaker/types';
 import { Spinner } from '@/components/ui/spinner';
 import {
   DropdownMenu,
@@ -23,6 +24,7 @@ const sectionIcons: Record<string, React.ComponentType<{ className?: string }>> 
 interface SidebarNavigationProps {
   currentProject: Project | null;
   sidebarOpen: boolean;
+  sidebarStyle: SidebarStyle;
   navSections: NavSection[];
   isActiveRoute: (id: string) => boolean;
   navigate: (opts: NavigateOptions) => void;
@@ -32,6 +34,7 @@ interface SidebarNavigationProps {
 export function SidebarNavigation({
   currentProject,
   sidebarOpen,
+  sidebarStyle,
   navSections,
   isActiveRoute,
   navigate,
@@ -39,21 +42,26 @@ export function SidebarNavigation({
 }: SidebarNavigationProps) {
   const navRef = useRef<HTMLElement>(null);
 
-  // Track collapsed state for each collapsible section
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  // Get collapsed state from store (persisted across restarts)
+  const { collapsedNavSections, setCollapsedNavSections, toggleNavSection } = useAppStore();
 
   // Initialize collapsed state when sections change (e.g., GitHub section appears)
+  // Only set defaults for sections that don't have a persisted state
   useEffect(() => {
-    setCollapsedSections((prev) => {
-      const updated = { ...prev };
-      navSections.forEach((section) => {
-        if (section.collapsible && section.label && !(section.label in updated)) {
-          updated[section.label] = section.defaultCollapsed ?? false;
-        }
-      });
-      return updated;
+    let hasNewSections = false;
+    const updated = { ...collapsedNavSections };
+
+    navSections.forEach((section) => {
+      if (section.collapsible && section.label && !(section.label in updated)) {
+        updated[section.label] = section.defaultCollapsed ?? false;
+        hasNewSections = true;
+      }
     });
-  }, [navSections]);
+
+    if (hasNewSections) {
+      setCollapsedNavSections(updated);
+    }
+  }, [navSections, collapsedNavSections, setCollapsedNavSections]);
 
   // Check scroll state
   const checkScrollState = useCallback(() => {
@@ -77,14 +85,7 @@ export function SidebarNavigation({
       nav.removeEventListener('scroll', checkScrollState);
       resizeObserver.disconnect();
     };
-  }, [checkScrollState, collapsedSections]);
-
-  const toggleSection = useCallback((label: string) => {
-    setCollapsedSections((prev) => ({
-      ...prev,
-      [label]: !prev[label],
-    }));
-  }, []);
+  }, [checkScrollState, collapsedNavSections]);
 
   // Filter sections: always show non-project sections, only show project sections when project exists
   const visibleSections = navSections.filter((section) => {
@@ -97,10 +98,17 @@ export function SidebarNavigation({
   });
 
   return (
-    <nav ref={navRef} className={cn('flex-1 overflow-y-auto scrollbar-hide px-3 pb-2 mt-1')}>
+    <nav
+      ref={navRef}
+      className={cn(
+        'flex-1 overflow-y-auto scrollbar-hide px-3 pb-2',
+        // Add top padding in discord mode since there's no header
+        sidebarStyle === 'discord' ? 'pt-3' : 'mt-1'
+      )}
+    >
       {/* Navigation sections */}
       {visibleSections.map((section, sectionIdx) => {
-        const isCollapsed = section.label ? collapsedSections[section.label] : false;
+        const isCollapsed = section.label ? collapsedNavSections[section.label] : false;
         const isCollapsible = section.collapsible && section.label && sidebarOpen;
 
         const SectionIcon = section.label ? sectionIcons[section.label] : null;
@@ -110,21 +118,37 @@ export function SidebarNavigation({
             {/* Section Label - clickable if collapsible (expanded sidebar) */}
             {section.label && sidebarOpen && (
               <button
-                onClick={() => isCollapsible && toggleSection(section.label!)}
+                onClick={() => isCollapsible && toggleNavSection(section.label!)}
                 className={cn(
-                  'flex items-center w-full px-3 mb-1.5',
-                  isCollapsible && 'cursor-pointer hover:text-foreground'
+                  'group flex items-center w-full px-3 py-1.5 mb-1 rounded-md',
+                  'transition-all duration-200 ease-out',
+                  isCollapsible
+                    ? [
+                        'cursor-pointer',
+                        'hover:bg-accent/50 hover:text-foreground',
+                        'border border-transparent hover:border-border/40',
+                      ]
+                    : 'cursor-default'
                 )}
                 disabled={!isCollapsible}
               >
-                <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+                <span
+                  className={cn(
+                    'text-[10px] font-semibold uppercase tracking-widest transition-colors duration-200',
+                    isCollapsible
+                      ? 'text-muted-foreground/70 group-hover:text-foreground'
+                      : 'text-muted-foreground/70'
+                  )}
+                >
                   {section.label}
                 </span>
                 {isCollapsible && (
                   <ChevronDown
                     className={cn(
-                      'w-3 h-3 ml-auto text-muted-foreground/50 transition-transform duration-200',
-                      isCollapsed && '-rotate-90'
+                      'w-3 h-3 ml-auto transition-all duration-200',
+                      isCollapsed
+                        ? '-rotate-90 text-muted-foreground/50 group-hover:text-muted-foreground'
+                        : 'text-muted-foreground/50 group-hover:text-muted-foreground'
                     )}
                   />
                 )}

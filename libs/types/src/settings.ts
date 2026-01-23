@@ -79,6 +79,14 @@ export type ServerLogLevel = 'error' | 'warn' | 'info' | 'debug';
 export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
 
 /**
+ * SidebarStyle - Sidebar layout style options
+ *
+ * - 'unified': Single sidebar with integrated project dropdown (default, modern)
+ * - 'discord': Two sidebars - narrow project switcher + expandable navigation sidebar (classic)
+ */
+export type SidebarStyle = 'unified' | 'discord';
+
+/**
  * Thinking token budget mapping based on Claude SDK documentation.
  * @see https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
  *
@@ -836,6 +844,10 @@ export interface GlobalSettings {
   // UI State Preferences
   /** Whether sidebar is currently open */
   sidebarOpen: boolean;
+  /** Sidebar layout style ('unified' = modern single sidebar, 'discord' = classic two-sidebar layout) */
+  sidebarStyle: SidebarStyle;
+  /** Collapsed state of sidebar navigation sections (key: section label, value: is collapsed) */
+  collapsedNavSections?: Record<string, boolean>;
   /** Whether chat history panel is open */
   chatHistoryOpen: boolean;
 
@@ -1314,6 +1326,8 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   skipClaudeSetup: false,
   theme: 'dark',
   sidebarOpen: true,
+  sidebarStyle: 'unified',
+  collapsedNavSections: {},
   chatHistoryOpen: false,
   maxConcurrency: DEFAULT_MAX_CONCURRENCY,
   defaultSkipTests: true,

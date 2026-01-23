@@ -53,6 +53,7 @@ export function Sidebar() {
     trashedProjects,
     currentProject,
     sidebarOpen,
+    sidebarStyle,
     mobileSidebarHidden,
     projectHistory,
     upsertAndSetCurrentProject,
@@ -381,17 +382,21 @@ export function Sidebar() {
         )}
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          <SidebarHeader
-            sidebarOpen={sidebarOpen}
-            currentProject={currentProject}
-            onNewProject={handleNewProject}
-            onOpenFolder={handleOpenFolder}
-            onProjectContextMenu={handleContextMenu}
-          />
+          {/* Only show header in unified mode - in discord mode, ProjectSwitcher has the logo */}
+          {sidebarStyle === 'unified' && (
+            <SidebarHeader
+              sidebarOpen={sidebarOpen}
+              currentProject={currentProject}
+              onNewProject={handleNewProject}
+              onOpenFolder={handleOpenFolder}
+              onProjectContextMenu={handleContextMenu}
+            />
+          )}
 
           <SidebarNavigation
             currentProject={currentProject}
             sidebarOpen={sidebarOpen}
+            sidebarStyle={sidebarStyle}
             navSections={navSections}
             isActiveRoute={isActiveRoute}
             navigate={navigate}

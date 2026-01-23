@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Palette, Moon, Sun, Type, Sparkles } from 'lucide-react';
+import { Palette, Moon, Sun, Type, Sparkles, PanelLeft, Columns2 } from 'lucide-react';
 import { darkThemes, lightThemes } from '@/config/theme-options';
 import {
   UI_SANS_FONT_OPTIONS,
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/app-store';
 import { FontSelector } from '@/components/shared';
 import type { Theme } from '../shared/types';
+import type { SidebarStyle } from '@automaker/types';
 
 interface AppearanceSectionProps {
   effectiveTheme: Theme;
@@ -26,6 +27,8 @@ export function AppearanceSection({ effectiveTheme, onThemeChange }: AppearanceS
     setFontMono,
     disableSplashScreen,
     setDisableSplashScreen,
+    sidebarStyle,
+    setSidebarStyle,
   } = useAppStore();
 
   // Determine if current theme is light or dark
@@ -219,6 +222,94 @@ export function AppearanceSection({ effectiveTheme, onThemeChange }: AppearanceS
               checked={disableSplashScreen}
               onCheckedChange={setDisableSplashScreen}
             />
+          </div>
+        </div>
+
+        {/* Sidebar Style Section */}
+        <div className="space-y-4 pt-6 border-t border-border/50">
+          <div className="flex items-center gap-2 mb-4">
+            <PanelLeft className="w-4 h-4 text-muted-foreground" />
+            <Label className="text-foreground font-medium">Sidebar Layout</Label>
+          </div>
+          <p className="text-xs text-muted-foreground -mt-2 mb-4">
+            Choose between a modern unified sidebar or classic Discord-style layout with a separate
+            project switcher.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Unified Sidebar Option */}
+            <button
+              onClick={() => setSidebarStyle('unified')}
+              className={cn(
+                'group flex flex-col items-center gap-3 p-4 rounded-xl',
+                'text-sm font-medium transition-all duration-200 ease-out',
+                sidebarStyle === 'unified'
+                  ? [
+                      'bg-gradient-to-br from-brand-500/15 to-brand-600/10',
+                      'border-2 border-brand-500/40',
+                      'text-foreground',
+                      'shadow-md shadow-brand-500/10',
+                    ]
+                  : [
+                      'bg-accent/30 hover:bg-accent/50',
+                      'border border-border/50 hover:border-border',
+                      'text-muted-foreground hover:text-foreground',
+                      'hover:shadow-sm',
+                    ],
+                'hover:scale-[1.02] active:scale-[0.98]'
+              )}
+              data-testid="sidebar-style-unified"
+            >
+              <PanelLeft
+                className={cn(
+                  'w-8 h-8 transition-all duration-200',
+                  sidebarStyle === 'unified' ? 'text-brand-500' : 'text-muted-foreground'
+                )}
+              />
+              <div className="text-center">
+                <div className="font-medium">Unified</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Single sidebar with project dropdown
+                </div>
+              </div>
+            </button>
+
+            {/* Discord-style Sidebar Option */}
+            <button
+              onClick={() => setSidebarStyle('discord')}
+              className={cn(
+                'group flex flex-col items-center gap-3 p-4 rounded-xl',
+                'text-sm font-medium transition-all duration-200 ease-out',
+                sidebarStyle === 'discord'
+                  ? [
+                      'bg-gradient-to-br from-brand-500/15 to-brand-600/10',
+                      'border-2 border-brand-500/40',
+                      'text-foreground',
+                      'shadow-md shadow-brand-500/10',
+                    ]
+                  : [
+                      'bg-accent/30 hover:bg-accent/50',
+                      'border border-border/50 hover:border-border',
+                      'text-muted-foreground hover:text-foreground',
+                      'hover:shadow-sm',
+                    ],
+                'hover:scale-[1.02] active:scale-[0.98]'
+              )}
+              data-testid="sidebar-style-discord"
+            >
+              <Columns2
+                className={cn(
+                  'w-8 h-8 transition-all duration-200',
+                  sidebarStyle === 'discord' ? 'text-brand-500' : 'text-muted-foreground'
+                )}
+              />
+              <div className="text-center">
+                <div className="font-medium">Classic</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Separate project switcher + sidebar
+                </div>
+              </div>
+            </button>
           </div>
         </div>
       </div>

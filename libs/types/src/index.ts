@@ -145,6 +145,7 @@ export { DEFAULT_PROMPT_CUSTOMIZATION } from './prompts.js';
 // Settings types and constants
 export type {
   ThemeMode,
+  SidebarStyle,
   PlanningMode,
   ThinkingLevel,
   ServerLogLevel,

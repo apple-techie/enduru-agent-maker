@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { createLogger } from '@automaker/utils/logger';
 import { Sidebar } from '@/components/layout/sidebar';
+import { ProjectSwitcher } from '@/components/layout/project-switcher';
 import {
   FileBrowserProvider,
   useFileBrowser,
@@ -167,6 +168,7 @@ function RootLayoutContent() {
     theme,
     fontFamilySans,
     fontFamilyMono,
+    sidebarStyle,
     skipSandboxWarning,
     setSkipSandboxWarning,
     fetchCodexModels,
@@ -860,6 +862,8 @@ function RootLayoutContent() {
             aria-hidden="true"
           />
         )}
+        {/* Discord-style layout: narrow project switcher + expandable sidebar */}
+        {sidebarStyle === 'discord' && <ProjectSwitcher />}
         <Sidebar />
         <div
           className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
