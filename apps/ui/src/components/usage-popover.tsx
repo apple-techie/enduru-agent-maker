@@ -244,10 +244,19 @@ export function UsagePopover() {
     return 'bg-green-500';
   };
 
-  const codexWindowMinutes = codexUsage?.rateLimits?.primary?.windowDurationMins ?? null;
+  const codexPrimaryWindowMinutes = codexUsage?.rateLimits?.primary?.windowDurationMins ?? null;
+  const codexSecondaryWindowMinutes = codexUsage?.rateLimits?.secondary?.windowDurationMins ?? null;
+  const codexWindowMinutes =
+    codexSecondaryWindowMinutes && codexPrimaryWindowMinutes
+      ? Math.min(codexPrimaryWindowMinutes, codexSecondaryWindowMinutes)
+      : (codexSecondaryWindowMinutes ?? codexPrimaryWindowMinutes);
   const codexWindowLabel = codexWindowMinutes
     ? getCodexWindowLabel(codexWindowMinutes).title
     : 'Window';
+  const codexWindowUsage =
+    codexWindowMinutes === codexSecondaryWindowMinutes
+      ? codexUsage?.rateLimits?.secondary?.usedPercent
+      : codexUsage?.rateLimits?.primary?.usedPercent;
 
   // Determine which provider icon and percentage to show based on active tab
   const indicatorInfo =
@@ -260,7 +269,7 @@ export function UsagePopover() {
         }
       : {
           icon: OpenAIIcon,
-          percentage: codexMaxPercentage,
+          percentage: codexWindowUsage ?? 0,
           isStale: isCodexStale,
           title: `Usage (${codexWindowLabel})`,
         };
