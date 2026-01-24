@@ -53,6 +53,10 @@ const IDEATION_CONTEXT_OPTIONS: Array<{
   },
 ];
 
+/**
+ * Renders a settings popover to toggle per-project ideation context sources.
+ * Merges defaults with stored overrides and persists changes via the ideation store.
+ */
 export function IdeationSettingsPopover({ projectPath }: IdeationSettingsPopoverProps) {
   const { projectOverrides, setContextSource } = useIdeationStore(
     useShallow((state) => ({

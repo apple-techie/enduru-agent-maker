@@ -116,7 +116,14 @@ interface IdeationActions {
   setFilterStatus: (status: IdeaStatus | 'all') => void;
 
   // Context sources
+  /**
+   * Returns the effective context-source settings for a project,
+   * merging defaults with any stored overrides.
+   */
   getContextSources: (projectPath: string) => IdeationContextSources;
+  /**
+   * Updates a single context-source flag for a project.
+   */
   setContextSource: (
     projectPath: string,
     key: keyof IdeationContextSources,
