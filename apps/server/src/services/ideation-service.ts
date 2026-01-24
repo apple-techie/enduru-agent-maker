@@ -840,20 +840,19 @@ ${contextSection}${existingWorkSection}`;
   private parseSuggestionsFromResponse(
     response: string,
     category: IdeaCategory,
-    count: number = 10
+    count: number
   ): AnalysisSuggestion[] {
-    const suggestionCount = Math.min(Math.max(Math.floor(count ?? 10), 1), 20);
     try {
       // Try to extract JSON from the response
       const jsonMatch = response.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
         logger.warn('No JSON array found in response, falling back to text parsing');
-        return this.parseTextResponse(response, category, suggestionCount);
+        return this.parseTextResponse(response, category, count);
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
       if (!Array.isArray(parsed)) {
-        return this.parseTextResponse(response, category, suggestionCount);
+        return this.parseTextResponse(response, category, count);
       }
 
       return parsed
@@ -866,10 +865,10 @@ ${contextSection}${existingWorkSection}`;
           priority: item.priority || 'medium',
           relatedFiles: item.relatedFiles || [],
         }))
-        .slice(0, suggestionCount);
+        .slice(0, count);
     } catch (error) {
       logger.warn('Failed to parse JSON response:', error);
-      return this.parseTextResponse(response, category, suggestionCount);
+      return this.parseTextResponse(response, category, count);
     }
   }
 
@@ -879,9 +878,8 @@ ${contextSection}${existingWorkSection}`;
   private parseTextResponse(
     response: string,
     category: IdeaCategory,
-    count: number = 10
+    count: number
   ): AnalysisSuggestion[] {
-    const suggestionCount = Math.min(Math.max(Math.floor(count ?? 10), 1), 20);
     const suggestions: AnalysisSuggestion[] = [];
 
     // Try to find numbered items or headers
@@ -941,7 +939,7 @@ ${contextSection}${existingWorkSection}`;
       });
     }
 
-    return suggestions.slice(0, suggestionCount);
+    return suggestions.slice(0, count);
   }
 
   // ============================================================================
