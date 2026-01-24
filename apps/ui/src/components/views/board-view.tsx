@@ -52,6 +52,8 @@ import {
   FollowUpDialog,
   PlanApprovalDialog,
 } from './board-view/dialogs';
+import { CodeReviewDialog } from '@/components/dialogs/code-review-dialog';
+import { useCodeReview } from '@/hooks/use-code-review';
 import { PipelineSettingsDialog } from './board-view/dialogs/pipeline-settings-dialog';
 import { CreateWorktreeDialog } from './board-view/dialogs/create-worktree-dialog';
 import { DeleteWorktreeDialog } from './board-view/dialogs/delete-worktree-dialog';
@@ -166,6 +168,11 @@ export function BoardView() {
 
   // Pipeline settings dialog state
   const [showPipelineSettings, setShowPipelineSettings] = useState(false);
+
+  // Code review state
+  const [showCodeReviewDialog, setShowCodeReviewDialog] = useState(false);
+  const [codeReviewFeature, setCodeReviewFeature] = useState<Feature | null>(null);
+  const codeReview = useCodeReview();
 
   // Follow-up state hook
   const {
@@ -1373,6 +1380,44 @@ export function BoardView() {
     [currentProject, setPendingPlanApproval]
   );
 
+  // Handle opening code review for a feature
+  const handleCodeReview = useCallback(
+    async (feature: Feature) => {
+      if (!feature.branchName) {
+        toast.error('Cannot review code', {
+          description: 'Feature has no associated branch',
+        });
+        return;
+      }
+
+      // Find the worktree for this feature's branch
+      const featureWorktree = worktrees.find((w) => w.branch === feature.branchName);
+      const worktreePath = featureWorktree?.path;
+
+      if (!worktreePath) {
+        toast.error('Cannot review code', {
+          description: 'No worktree found for this feature. Create a worktree first.',
+        });
+        return;
+      }
+
+      setCodeReviewFeature(feature);
+      setShowCodeReviewDialog(true);
+
+      // Trigger the code review for the feature's worktree
+      // Don't pass baseRef - let the backend auto-detect the base branch for worktrees
+      try {
+        await codeReview.triggerReview({
+          projectPath: worktreePath,
+          // baseRef is omitted - backend will detect main/master for worktrees
+        });
+      } catch (error) {
+        logger.error('Failed to trigger code review:', error);
+      }
+    },
+    [codeReview, worktrees]
+  );
+
   if (!currentProject) {
     return (
       <div className="flex-1 flex items-center justify-center" data-testid="board-view-no-project">
@@ -1485,6 +1530,7 @@ export function BoardView() {
                 setSpawnParentFeature(feature);
                 setShowAddDialog(true);
               },
+              onCodeReview: handleCodeReview,
             }}
             runningAutoTasks={runningAutoTasks}
             pipelineConfig={pipelineConfig}
@@ -1528,6 +1574,7 @@ export function BoardView() {
               setSpawnParentFeature(feature);
               setShowAddDialog(true);
             }}
+            onCodeReview={handleCodeReview}
             featuresWithContext={featuresWithContext}
             runningAutoTasks={runningAutoTasks}
             onArchiveAllVerified={() => setShowArchiveAllVerifiedDialog(true)}
@@ -1748,6 +1795,26 @@ export function BoardView() {
           viewOnly={true}
         />
       )}
+
+      {/* Code Review Dialog */}
+      <CodeReviewDialog
+        open={showCodeReviewDialog}
+        onOpenChange={(open) => {
+          setShowCodeReviewDialog(open);
+          if (!open) {
+            setCodeReviewFeature(null);
+            codeReview.clearReview();
+          }
+        }}
+        review={codeReview.review}
+        loading={codeReview.reviewing}
+        error={codeReview.error}
+        onRetry={() => {
+          if (codeReviewFeature) {
+            handleCodeReview(codeReviewFeature);
+          }
+        }}
+      />
 
       {/* Create Worktree Dialog */}
       <CreateWorktreeDialog

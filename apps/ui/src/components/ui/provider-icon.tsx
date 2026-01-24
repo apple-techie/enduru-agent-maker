@@ -19,6 +19,7 @@ const PROVIDER_ICON_KEYS = {
   minimax: 'minimax',
   glm: 'glm',
   bigpickle: 'bigpickle',
+  coderabbit: 'coderabbit',
 } as const;
 
 type ProviderIconKey = keyof typeof PROVIDER_ICON_KEYS;
@@ -113,6 +114,12 @@ const PROVIDER_ICON_DEFINITIONS: Record<ProviderIconKey, ProviderIconDefinition>
     path: 'M8 4c-2.21 0-4 1.79-4 4v8c0 2.21 1.79 4 4 4h8c2.21 0 4-1.79 4-4V8c0-2.21-1.79-4-4-4H8zm0 2h8c1.103 0 2 .897 2 2v8c0 1.103-.897 2-2 2H8c-1.103 0-2-.897-2-2V8c0-1.103.897-2 2-2zm2 3a1 1 0 100 2 1 1 0 000-2zm4 0a1 1 0 100 2 1 1 0 000-2zm-4 4a1 1 0 100 2 1 1 0 000-2zm4 0a1 1 0 100 2 1 1 0 000-2z',
     fill: '#4ADE80',
   },
+  coderabbit: {
+    viewBox: '0 0 24 24',
+    // CodeRabbit logo - rabbit/bunny icon
+    path: 'M18 4a2 2 0 0 0-2-2c-.9 0-1.7.6-1.9 1.5l-.3 1.1c-.2.6-.7 1-1.3 1.2L12 6l-.5-.2c-.6-.2-1.1-.6-1.3-1.2l-.3-1.1C9.7 2.6 8.9 2 8 2a2 2 0 0 0-2 2c0 .7.4 1.4 1 1.7V7c0 1.1.9 2 2 2h1v2H8.5C6 11 4 13 4 15.5V18c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-2.5c0-2.5-2-4.5-4.5-4.5H14V9h1c1.1 0 2-.9 2-2V5.7c.6-.3 1-1 1-1.7zm-8 9h4c1.1 0 2 .9 2 2v1H8v-1c0-1.1.9-2 2-2z',
+    fill: '#FF6B35',
+  },
 };
 
 export interface ProviderIconProps extends Omit<SVGProps<SVGSVGElement>, 'viewBox'> {
@@ -176,6 +183,10 @@ export function GrokIcon(props: Omit<ProviderIconProps, 'provider'>) {
 
 export function OpenCodeIcon(props: Omit<ProviderIconProps, 'provider'>) {
   return <ProviderIcon provider={PROVIDER_ICON_KEYS.opencode} {...props} />;
+}
+
+export function CodeRabbitIcon(props: Omit<ProviderIconProps, 'provider'>) {
+  return <ProviderIcon provider={PROVIDER_ICON_KEYS.coderabbit} {...props} />;
 }
 
 export function DeepSeekIcon({
@@ -569,6 +580,7 @@ export function getProviderIconForModel(
     minimax: MiniMaxIcon,
     glm: GlmIcon,
     bigpickle: BigPickleIcon,
+    coderabbit: CodeRabbitIcon,
   };
 
   return iconMap[iconKey] || AnthropicIcon;

@@ -3,6 +3,7 @@
  */
 
 import { Router } from 'express';
+import { createStatusHandler } from './routes/status.js';
 import { createClaudeStatusHandler } from './routes/claude-status.js';
 import { createInstallClaudeHandler } from './routes/install-claude.js';
 import { createAuthClaudeHandler } from './routes/auth-claude.js';
@@ -12,6 +13,10 @@ import { createApiKeysHandler } from './routes/api-keys.js';
 import { createPlatformHandler } from './routes/platform.js';
 import { createVerifyClaudeAuthHandler } from './routes/verify-claude-auth.js';
 import { createVerifyCodexAuthHandler } from './routes/verify-codex-auth.js';
+import { createVerifyCodeRabbitAuthHandler } from './routes/verify-coderabbit-auth.js';
+import { createCodeRabbitStatusHandler } from './routes/coderabbit-status.js';
+import { createAuthCodeRabbitHandler } from './routes/auth-coderabbit.js';
+import { createDeauthCodeRabbitHandler } from './routes/deauth-coderabbit.js';
 import { createGhStatusHandler } from './routes/gh-status.js';
 import { createCursorStatusHandler } from './routes/cursor-status.js';
 import { createCodexStatusHandler } from './routes/codex-status.js';
@@ -44,6 +49,9 @@ import {
 export function createSetupRoutes(): Router {
   const router = Router();
 
+  // Unified CLI status endpoint
+  router.get('/status', createStatusHandler());
+
   router.get('/claude-status', createClaudeStatusHandler());
   router.post('/install-claude', createInstallClaudeHandler());
   router.post('/auth-claude', createAuthClaudeHandler());
@@ -54,6 +62,7 @@ export function createSetupRoutes(): Router {
   router.get('/platform', createPlatformHandler());
   router.post('/verify-claude-auth', createVerifyClaudeAuthHandler());
   router.post('/verify-codex-auth', createVerifyCodexAuthHandler());
+  router.post('/verify-coderabbit-auth', createVerifyCodeRabbitAuthHandler());
   router.get('/gh-status', createGhStatusHandler());
 
   // Cursor CLI routes
@@ -71,6 +80,11 @@ export function createSetupRoutes(): Router {
   router.get('/opencode-status', createOpencodeStatusHandler());
   router.post('/auth-opencode', createAuthOpencodeHandler());
   router.post('/deauth-opencode', createDeauthOpencodeHandler());
+
+  // CodeRabbit CLI routes
+  router.get('/coderabbit-status', createCodeRabbitStatusHandler());
+  router.post('/auth-coderabbit', createAuthCodeRabbitHandler());
+  router.post('/deauth-coderabbit', createDeauthCodeRabbitHandler());
 
   // OpenCode Dynamic Model Discovery routes
   router.get('/opencode/models', createGetOpencodeModelsHandler());

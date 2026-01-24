@@ -1438,6 +1438,37 @@ interface SetupAPI {
     user: string | null;
     error?: string;
   }>;
+  getCodeRabbitStatus?: () => Promise<{
+    success: boolean;
+    installed?: boolean;
+    version?: string;
+    path?: string;
+    recommendation?: string;
+    installCommands?: {
+      macos?: string;
+      npm?: string;
+    };
+    auth?: {
+      authenticated: boolean;
+      method: 'oauth' | 'none';
+      username?: string;
+      email?: string;
+      organization?: string;
+    };
+    error?: string;
+  }>;
+  authCodeRabbit?: () => Promise<{
+    success: boolean;
+    requiresManualAuth?: boolean;
+    command?: string;
+    message?: string;
+    error?: string;
+  }>;
+  deauthCodeRabbit?: () => Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }>;
   onInstallProgress?: (callback: (progress: any) => void) => () => void;
   onAuthProgress?: (callback: (progress: any) => void) => () => void;
 }

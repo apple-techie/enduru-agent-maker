@@ -40,6 +40,7 @@ export interface UnifiedCliDetection {
   claude?: CliDetectionResult;
   codex?: CliDetectionResult;
   cursor?: CliDetectionResult;
+  coderabbit?: CliDetectionResult;
 }
 
 /**
@@ -74,6 +75,16 @@ const CLI_CONFIGS = {
       darwin: 'brew install cursor/cursor/cursor-agent',
       linux: 'curl -fsSL https://cursor.sh/install.sh | sh',
       win32: 'iwr https://cursor.sh/install.ps1 -UseBasicParsing | iex',
+    },
+  },
+  coderabbit: {
+    name: 'CodeRabbit CLI',
+    commands: ['coderabbit', 'cr'],
+    versionArgs: ['--version'],
+    installCommands: {
+      darwin: 'npm install -g coderabbit',
+      linux: 'npm install -g coderabbit',
+      win32: 'npm install -g coderabbit',
     },
   },
 } as const;
@@ -230,6 +241,8 @@ export async function checkCliAuth(
         return await checkCodexAuth(command);
       case 'cursor':
         return await checkCursorAuth(command);
+      case 'coderabbit':
+        return await checkCodeRabbitAuth(command);
       default:
         return 'none';
     }
@@ -353,6 +366,64 @@ async function checkCursorAuth(command: string): Promise<'cli' | 'api_key' | 'no
   }
 
   return 'none';
+}
+
+/**
+ * Check CodeRabbit CLI authentication
+ *
+ * Expected output when authenticated:
+ * ```
+ * CodeRabbit CLI Status
+ * ✅ Authentication: Logged in
+ * User Information:
+ *   👤 Name: ...
+ * ```
+ */
+async function checkCodeRabbitAuth(command: string): Promise<'cli' | 'api_key' | 'none'> {
+  // Check for environment variable
+  if (process.env.CODERABBIT_API_KEY) {
+    return 'api_key';
+  }
+
+  // Try running auth status command
+  return new Promise((resolve) => {
+    const child = spawn(command, ['auth', 'status'], {
+      stdio: 'pipe',
+      timeout: 10000, // Increased timeout for slower systems
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout?.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr?.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    child.on('close', (code) => {
+      const output = stdout + stderr;
+
+      // Check for positive authentication indicators in output
+      const isAuthenticated =
+        code === 0 &&
+        (output.includes('Logged in') || output.includes('logged in')) &&
+        !output.toLowerCase().includes('not logged in') &&
+        !output.toLowerCase().includes('not authenticated');
+
+      if (isAuthenticated) {
+        resolve('cli');
+      } else {
+        resolve('none');
+      }
+    });
+
+    child.on('error', () => {
+      resolve('none');
+    });
+  });
 }
 
 /**

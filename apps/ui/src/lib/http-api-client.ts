@@ -35,11 +35,18 @@ import type {
   NotificationsAPI,
   EventHistoryAPI,
 } from './electron';
-import type { EventHistoryFilter } from '@automaker/types';
+import type {
+  EventHistoryFilter,
+  ModelId,
+  ThinkingLevel,
+  ReasoningEffort,
+  CodeReviewCategory,
+  CodeReviewEvent,
+  CodeReviewResult,
+} from '@automaker/types';
 import type { Message, SessionListItem } from '@/types/electron';
 import type { Feature, ClaudeUsageResponse, CodexUsageResponse } from '@/store/app-store';
 import type { WorktreeAPI, GitAPI, ModelDefinition, ProviderStatus } from '@/types/electron';
-import type { ModelId, ThinkingLevel, ReasoningEffort } from '@automaker/types';
 import { getGlobalFileBrowser } from '@/contexts/file-browser-context';
 
 const logger = createLogger('HttpClient');
@@ -524,7 +531,8 @@ type EventType =
   | 'dev-server:started'
   | 'dev-server:output'
   | 'dev-server:stopped'
-  | 'notification:created';
+  | 'notification:created'
+  | 'code_review:event';
 
 /**
  * Dev server log event payloads for WebSocket streaming
@@ -1473,6 +1481,15 @@ export class HttpApiClient implements ElectronAPI {
       error?: string;
     }> => this.post('/api/setup/verify-codex-auth', { authMethod, apiKey }),
 
+    verifyCodeRabbitAuth: (
+      authMethod: 'cli' | 'api_key',
+      apiKey?: string
+    ): Promise<{
+      success: boolean;
+      authenticated: boolean;
+      error?: string;
+    }> => this.post('/api/setup/verify-coderabbit-auth', { authMethod, apiKey }),
+
     // OpenCode CLI methods
     getOpencodeStatus: (): Promise<{
       success: boolean;
@@ -1559,6 +1576,41 @@ export class HttpApiClient implements ElectronAPI {
       message?: string;
       error?: string;
     }> => this.post('/api/setup/opencode/cache/clear'),
+
+    // CodeRabbit CLI methods
+    getCodeRabbitStatus: (): Promise<{
+      success: boolean;
+      installed?: boolean;
+      version?: string;
+      path?: string;
+      recommendation?: string;
+      installCommands?: {
+        macos?: string;
+        npm?: string;
+      };
+      auth?: {
+        authenticated: boolean;
+        method: 'oauth' | 'none';
+        username?: string;
+        email?: string;
+        organization?: string;
+      };
+      error?: string;
+    }> => this.get('/api/setup/coderabbit-status'),
+
+    authCodeRabbit: (): Promise<{
+      success: boolean;
+      requiresManualAuth?: boolean;
+      command?: string;
+      message?: string;
+      error?: string;
+    }> => this.post('/api/setup/auth-coderabbit'),
+
+    deauthCodeRabbit: (): Promise<{
+      success: boolean;
+      message?: string;
+      error?: string;
+    }> => this.post('/api/setup/deauth-coderabbit'),
 
     onInstallProgress: (callback: (progress: unknown) => void) => {
       return this.subscribeToEvent('agent:stream', callback);
@@ -2306,6 +2358,81 @@ export class HttpApiClient implements ElectronAPI {
     }> => {
       const url = `/api/codex/models${refresh ? '?refresh=true' : ''}`;
       return this.get(url);
+    },
+  };
+
+  // Code Review API
+  codeReview = {
+    /**
+     * Trigger a new code review on the specified project
+     * @param projectPath - Path to the project to review
+     * @param options - Optional configuration for the review
+     * @returns Promise with success status and message
+     */
+    trigger: (
+      projectPath: string,
+      options?: {
+        /** Specific files to review (if empty, reviews git diff) */
+        files?: string[];
+        /** Git ref to compare against (default: HEAD~1) */
+        baseRef?: string;
+        /** Categories to focus on */
+        categories?: CodeReviewCategory[];
+        /** Whether to attempt auto-fixes for issues found */
+        autoFix?: boolean;
+        /** Model to use for the review */
+        model?: ModelId;
+        /** Thinking level for extended reasoning */
+        thinkingLevel?: ThinkingLevel;
+      }
+    ): Promise<{ success: boolean; message?: string; error?: string }> =>
+      this.post('/api/code-review/trigger', { projectPath, ...options }),
+
+    /**
+     * Get the current code review status
+     * @returns Promise with running status and project path
+     */
+    status: (): Promise<{
+      success: boolean;
+      isRunning: boolean;
+      projectPath?: string;
+      error?: string;
+    }> => this.get('/api/code-review/status'),
+
+    /**
+     * Stop the currently running code review
+     * @returns Promise with success status and message
+     */
+    stop: (): Promise<{ success: boolean; message?: string; error?: string }> =>
+      this.post('/api/code-review/stop', {}),
+
+    /**
+     * Get available code review providers and their status
+     * @param forceRefresh - Force refresh of cached provider status
+     * @returns Promise with list of providers and recommended provider
+     */
+    getProviders: (
+      forceRefresh = false
+    ): Promise<{
+      success: boolean;
+      providers?: Array<{
+        provider: 'claude' | 'codex' | 'cursor';
+        available: boolean;
+        authenticated: boolean;
+        version?: string;
+        issues: string[];
+      }>;
+      recommended?: string | null;
+      error?: string;
+    }> => this.get(`/api/code-review/providers${forceRefresh ? '?refresh=true' : ''}`),
+
+    /**
+     * Subscribe to code review events via WebSocket
+     * @param callback - Function to call when a code review event is received
+     * @returns Unsubscribe function
+     */
+    onEvent: (callback: (event: CodeReviewEvent) => void): (() => void) => {
+      return this.subscribeToEvent('code_review:event', callback as EventCallback);
     },
   };
 

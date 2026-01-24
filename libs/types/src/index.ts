@@ -296,3 +296,18 @@ export { EVENT_HISTORY_VERSION, DEFAULT_EVENT_HISTORY_INDEX } from './event-hist
 // Worktree and PR types
 export type { PRState, WorktreePRInfo } from './worktree.js';
 export { PR_STATES, validatePRState } from './worktree.js';
+
+// Code review types
+export type {
+  CodeReviewSeverity,
+  CodeReviewCategory,
+  CodeReviewVerdict,
+  CodeReviewComment,
+  CodeReviewSummary,
+  CodeReviewResult,
+  CodeReviewRequest,
+  CodeReviewResponse,
+  CodeReviewErrorResponse,
+  CodeReviewEvent,
+  StoredCodeReview,
+} from './code-review.js';

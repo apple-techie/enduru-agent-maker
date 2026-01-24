@@ -14,6 +14,7 @@ import {
   GitBranch,
   GitFork,
   ExternalLink,
+  FileSearch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ export interface RowActionHandlers {
   onViewPlan?: () => void;
   onApprovePlan?: () => void;
   onSpawnTask?: () => void;
+  onCodeReview?: () => void;
 }
 
 export interface RowActionsProps {
@@ -479,6 +481,14 @@ export const RowActions = memo(function RowActions({
               {handlers.onFollowUp && (
                 <MenuItem icon={Wand2} label="Refine" onClick={withClose(handlers.onFollowUp)} />
               )}
+              {handlers.onCodeReview && (
+                <MenuItem
+                  icon={FileSearch}
+                  label="Code Review"
+                  onClick={withClose(handlers.onCodeReview)}
+                  variant="primary"
+                />
+              )}
               {feature.prUrl && (
                 <MenuItem
                   icon={ExternalLink}
@@ -615,6 +625,7 @@ export function createRowActionHandlers(
     viewPlan?: (id: string) => void;
     approvePlan?: (id: string) => void;
     spawnTask?: (id: string) => void;
+    codeReview?: (id: string) => void;
   }
 ): RowActionHandlers {
   return {
@@ -631,5 +642,6 @@ export function createRowActionHandlers(
     onViewPlan: actions.viewPlan ? () => actions.viewPlan!(featureId) : undefined,
     onApprovePlan: actions.approvePlan ? () => actions.approvePlan!(featureId) : undefined,
     onSpawnTask: actions.spawnTask ? () => actions.spawnTask!(featureId) : undefined,
+    onCodeReview: actions.codeReview ? () => actions.codeReview!(featureId) : undefined,
   };
 }

@@ -42,6 +42,7 @@ export interface ListViewActionHandlers {
   onViewPlan?: (feature: Feature) => void;
   onApprovePlan?: (feature: Feature) => void;
   onSpawnTask?: (feature: Feature) => void;
+  onCodeReview?: (feature: Feature) => void;
 }
 
 export interface ListViewProps {

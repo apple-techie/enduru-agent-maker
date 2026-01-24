@@ -23,6 +23,7 @@ import {
   CursorSettingsTab,
   CodexSettingsTab,
   OpencodeSettingsTab,
+  CodeRabbitSettingsTab,
 } from './settings-view/providers';
 import { MCPServersSection } from './settings-view/mcp-servers';
 import { PromptCustomizationSection } from './settings-view/prompts';
@@ -123,6 +124,8 @@ export function SettingsView() {
         return <CodexSettingsTab />;
       case 'opencode-provider':
         return <OpencodeSettingsTab />;
+      case 'coderabbit-provider':
+        return <CodeRabbitSettingsTab />;
       case 'providers':
       case 'claude': // Backwards compatibility - redirect to claude-provider
         return <ClaudeSettingsTab />;

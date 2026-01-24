@@ -40,6 +40,7 @@ interface KanbanBoardProps {
   onViewPlan: (feature: Feature) => void;
   onApprovePlan: (feature: Feature) => void;
   onSpawnTask?: (feature: Feature) => void;
+  onCodeReview?: (feature: Feature) => void;
   featuresWithContext: Set<string>;
   runningAutoTasks: string[];
   onArchiveAllVerified: () => void;
@@ -87,6 +88,7 @@ export function KanbanBoard({
   onViewPlan,
   onApprovePlan,
   onSpawnTask,
+  onCodeReview,
   featuresWithContext,
   runningAutoTasks,
   onArchiveAllVerified,
@@ -326,6 +328,7 @@ export function KanbanBoard({
                         onViewPlan={() => onViewPlan(feature)}
                         onApprovePlan={() => onApprovePlan(feature)}
                         onSpawnTask={() => onSpawnTask?.(feature)}
+                        onCodeReview={onCodeReview ? () => onCodeReview(feature) : undefined}
                         hasContext={featuresWithContext.has(feature.id)}
                         isCurrentAutoTask={runningAutoTasks.includes(feature.id)}
                         shortcutKey={shortcutKey}

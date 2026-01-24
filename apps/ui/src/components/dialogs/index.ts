@@ -1,4 +1,6 @@
 export { BoardBackgroundModal } from './board-background-modal';
+export { CodeReviewDialog } from './code-review-dialog';
+export type { CodeReviewDialogProps } from './code-review-dialog';
 export { DeleteAllArchivedSessionsDialog } from './delete-all-archived-sessions-dialog';
 export { DeleteSessionDialog } from './delete-session-dialog';
 export { FileBrowserDialog } from './file-browser-dialog';

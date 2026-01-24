@@ -420,6 +420,7 @@ export class SettingsService {
     anthropic: { configured: boolean; masked: string };
     google: { configured: boolean; masked: string };
     openai: { configured: boolean; masked: string };
+    coderabbit: { configured: boolean; masked: string };
   }> {
     const credentials = await this.getCredentials();
 
@@ -440,6 +441,10 @@ export class SettingsService {
       openai: {
         configured: !!credentials.apiKeys.openai,
         masked: maskKey(credentials.apiKeys.openai),
+      },
+      coderabbit: {
+        configured: !!credentials.apiKeys.coderabbit,
+        masked: maskKey(credentials.apiKeys.coderabbit),
       },
     };
   }
@@ -658,12 +663,14 @@ export class SettingsService {
           anthropic?: string;
           google?: string;
           openai?: string;
+          coderabbit?: string;
         };
         await this.updateCredentials({
           apiKeys: {
             anthropic: apiKeys.anthropic || '',
             google: apiKeys.google || '',
             openai: apiKeys.openai || '',
+            coderabbit: apiKeys.coderabbit || '',
           },
         });
         migratedCredentials = true;

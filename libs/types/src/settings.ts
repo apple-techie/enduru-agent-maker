@@ -669,6 +669,8 @@ export interface Credentials {
     google: string;
     /** OpenAI API key (for compatibility or alternative providers) */
     openai: string;
+    /** CodeRabbit API key (for AI-powered code reviews) */
+    coderabbit: string;
   };
 }
 
@@ -905,6 +907,7 @@ export const DEFAULT_CREDENTIALS: Credentials = {
     anthropic: '',
     google: '',
     openai: '',
+    coderabbit: '',
   },
 };
 

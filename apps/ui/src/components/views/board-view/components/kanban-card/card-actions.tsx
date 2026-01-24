@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Feature } from '@/store/app-store';
+import type { Feature } from '@/store/app-store';
 import { Button } from '@/components/ui/button';
 import {
   Edit,
@@ -11,6 +10,7 @@ import {
   Eye,
   Wand2,
   Archive,
+  FileSearch,
 } from 'lucide-react';
 
 interface CardActionsProps {
@@ -30,12 +30,13 @@ interface CardActionsProps {
   onComplete?: () => void;
   onViewPlan?: () => void;
   onApprovePlan?: () => void;
+  onCodeReview?: () => void;
 }
 
 export function CardActions({
   feature,
   isCurrentAutoTask,
-  hasContext,
+  hasContext: _hasContext,
   shortcutKey,
   isSelectionMode = false,
   onEdit,
@@ -49,6 +50,7 @@ export function CardActions({
   onComplete,
   onViewPlan,
   onApprovePlan,
+  onCodeReview,
 }: CardActionsProps) {
   // Hide all actions when in selection mode
   if (isSelectionMode) {
@@ -256,6 +258,24 @@ export function CardActions({
             >
               <Wand2 className="w-3 h-3 mr-1 shrink-0" />
               <span className="truncate">Refine</span>
+            </Button>
+          )}
+          {/* Code Review button - analyzes code for best practices */}
+          {onCodeReview && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] px-2.5 min-w-[44px] gap-1.5 hover:bg-blue-500/10 hover:text-blue-600 hover:border-blue-500/30 dark:hover:text-blue-400 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCodeReview();
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              data-testid={`code-review-${feature.id}`}
+              aria-label="Start code review for this feature"
+            >
+              <FileSearch className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="sr-only sm:not-sr-only">Review</span>
             </Button>
           )}
           {/* Show Verify button if PR was created (changes are committed), otherwise show Mark as Verified button */}

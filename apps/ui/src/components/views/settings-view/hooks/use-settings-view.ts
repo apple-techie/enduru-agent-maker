@@ -8,6 +8,7 @@ export type SettingsViewId =
   | 'cursor-provider'
   | 'codex-provider'
   | 'opencode-provider'
+  | 'coderabbit-provider'
   | 'mcp-servers'
   | 'prompts'
   | 'model-defaults'

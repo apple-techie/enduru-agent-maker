@@ -1,5 +1,12 @@
 export { useAutoMode } from './use-auto-mode';
 export { useBoardBackgroundSettings } from './use-board-background-settings';
+export {
+  useCodeReview,
+  type TriggerReviewOptions,
+  type ReviewProgress,
+  type ReviewProviderStatus,
+  type UseCodeReviewResult,
+} from './use-code-review';
 export { useElectronAgent } from './use-electron-agent';
 export { useGuidedPrompts } from './use-guided-prompts';
 export { useKeyboardShortcuts } from './use-keyboard-shortcuts';
