@@ -76,7 +76,7 @@ export default function App() {
   }, []);
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={300}>
       <RouterProvider router={router} />
       {showSplash && !disableSplashScreen && <SplashScreen onComplete={handleSplashComplete} />}
     </TooltipProvider>

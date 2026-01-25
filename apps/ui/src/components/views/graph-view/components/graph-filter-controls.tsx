@@ -164,7 +164,11 @@ export function GraphFilterControls({
             </TooltipTrigger>
             <TooltipContent>Filter by Category</TooltipContent>
           </Tooltip>
-          <PopoverContent align="start" className="w-56 p-2">
+          <PopoverContent
+            align="start"
+            className="w-56 p-2"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
             <div className="space-y-2">
               <div className="text-xs font-medium text-muted-foreground px-2 py-1">Categories</div>
 
@@ -236,7 +240,11 @@ export function GraphFilterControls({
             </TooltipTrigger>
             <TooltipContent>Filter by Status</TooltipContent>
           </Tooltip>
-          <PopoverContent align="start" className="w-56 p-2">
+          <PopoverContent
+            align="start"
+            className="w-56 p-2"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
             <div className="space-y-2">
               <div className="text-xs font-medium text-muted-foreground px-2 py-1">Status</div>
 

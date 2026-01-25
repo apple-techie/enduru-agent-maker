@@ -286,50 +286,44 @@ export const TaskNode = memo(function TaskNode({ data, selected }: TaskNodeProps
 
             {/* Blocked indicator */}
             {data.isBlocked && !data.error && data.status === 'backlog' && (
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="p-1 rounded bg-orange-500/20">
-                      <Lock className="w-3 h-3 text-orange-500" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs max-w-[200px]">
-                    <p>Blocked by {data.blockingDependencies.length} dependencies</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-1 rounded bg-orange-500/20">
+                    <Lock className="w-3 h-3 text-orange-500" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[200px]">
+                  <p>Blocked by {data.blockingDependencies.length} dependencies</p>
+                </TooltipContent>
+              </Tooltip>
             )}
 
             {/* Error indicator */}
             {data.error && (
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="p-1 rounded bg-[var(--status-error-bg)]">
-                      <AlertCircle className="w-3 h-3 text-[var(--status-error)]" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs max-w-[250px]">
-                    <p>{data.error}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-1 rounded bg-[var(--status-error-bg)]">
+                    <AlertCircle className="w-3 h-3 text-[var(--status-error)]" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[250px]">
+                  <p>{data.error}</p>
+                </TooltipContent>
+              </Tooltip>
             )}
 
             {/* Stopped indicator - task is in_progress but not actively running */}
             {isStopped && (
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="p-1 rounded bg-[var(--status-warning-bg)]">
-                      <Pause className="w-3 h-3 text-[var(--status-warning)]" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs max-w-[200px]">
-                    <p>Task paused - click menu to resume</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-1 rounded bg-[var(--status-warning-bg)]">
+                    <Pause className="w-3 h-3 text-[var(--status-warning)]" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[200px]">
+                  <p>Task paused - click menu to resume</p>
+                </TooltipContent>
+              </Tooltip>
             )}
 
             {/* Actions dropdown */}
