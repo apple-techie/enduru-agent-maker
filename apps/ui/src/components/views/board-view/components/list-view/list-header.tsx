@@ -132,7 +132,7 @@ const SortableColumnHeader = memo(function SortableColumnHeader({
       )}
       data-testid={`list-header-${column.id}`}
     >
-      <span>{column.label}</span>
+      <span className="whitespace-nowrap truncate">{column.label}</span>
       <SortIcon column={column.id} sortConfig={sortConfig} />
     </div>
   );
@@ -156,7 +156,7 @@ const StaticColumnHeader = memo(function StaticColumnHeader({ column }: { column
       )}
       data-testid={`list-header-${column.id}`}
     >
-      <span>{column.label}</span>
+      <span className="whitespace-nowrap truncate">{column.label}</span>
     </div>
   );
 });

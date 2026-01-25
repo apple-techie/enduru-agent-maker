@@ -78,7 +78,9 @@ export const KanbanColumn = memo(function KanbanColumn({
         )}
       >
         <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', colorClass)} />
-        <h3 className="font-semibold text-sm text-foreground/90 flex-1 tracking-tight">{title}</h3>
+        <h3 className="font-semibold text-sm text-foreground/90 flex-1 tracking-tight whitespace-nowrap">
+          {title}
+        </h3>
         {headerAction}
         <span className="text-xs font-medium text-muted-foreground/80 bg-muted/50 px-2 py-0.5 rounded-md tabular-nums">
           {count}

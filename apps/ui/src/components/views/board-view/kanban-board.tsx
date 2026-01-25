@@ -12,7 +12,8 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Button } from '@/components/ui/button';
 import { KanbanColumn, KanbanCard, EmptyStateCard } from './components';
 import { Feature, useAppStore, formatShortcut } from '@/store/app-store';
-import { Archive, Settings2, CheckSquare, GripVertical, Plus } from 'lucide-react';
+import { Archive, Settings2, CheckSquare, GripVertical, Plus, CheckCircle2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useResponsiveKanban } from '@/hooks/use-responsive-kanban';
 import { getColumnsWithPipeline, type ColumnId } from './constants';
 import type { PipelineConfig } from '@automaker/types';
@@ -357,35 +358,49 @@ export function KanbanBoard({
                   contentClassName="perf-contain"
                   headerAction={
                     column.id === 'verified' ? (
-                      <div className="flex items-center gap-1">
-                        {columnFeatures.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs"
-                            onClick={onArchiveAllVerified}
-                            data-testid="archive-all-verified-button"
-                          >
-                            <Archive className="w-3 h-3 mr-1" />
-                            Complete All
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 relative"
-                          onClick={onShowCompletedModal}
-                          title={`Completed Features (${completedCount})`}
-                          data-testid="completed-features-button"
-                        >
-                          <Archive className="w-3.5 h-3.5 text-muted-foreground" />
-                          {completedCount > 0 && (
-                            <span className="absolute -top-1 -right-1 bg-brand-500 text-white text-[8px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
-                              {completedCount > 99 ? '99+' : completedCount}
-                            </span>
+                      <TooltipProvider>
+                        <div className="flex items-center gap-1">
+                          {columnFeatures.length > 0 && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={onArchiveAllVerified}
+                                  data-testid="archive-all-verified-button"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Complete All</p>
+                              </TooltipContent>
+                            </Tooltip>
                           )}
-                        </Button>
-                      </div>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 relative"
+                                onClick={onShowCompletedModal}
+                                data-testid="completed-features-button"
+                              >
+                                <Archive className="w-3.5 h-3.5 text-muted-foreground" />
+                                {completedCount > 0 && (
+                                  <span className="absolute -top-1 -right-1 bg-brand-500 text-white text-[8px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                                    {completedCount > 99 ? '99+' : completedCount}
+                                  </span>
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Completed Features ({completedCount})</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TooltipProvider>
                     ) : column.id === 'backlog' ? (
                       <div className="flex items-center gap-1">
                         <Button
