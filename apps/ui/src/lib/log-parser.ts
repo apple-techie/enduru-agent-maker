@@ -1211,49 +1211,35 @@ export function extractSummary(rawOutput: string): string | null {
   // that got separated by newlines during accumulation (e.g., "<sum\n\nmary>")
   const cleanedOutput = cleanFragmentedText(rawOutput);
 
-  // Try to find <summary> tags first (preferred format)
-  // Use matchAll to find ALL occurrences and take the LAST one
-  const summaryTagMatches = [...cleanedOutput.matchAll(/<summary>([\s\S]*?)<\/summary>/gi)];
-  if (summaryTagMatches.length > 0) {
-    // Clean up the extracted summary content as well
-    return cleanFragmentedText(summaryTagMatches[summaryTagMatches.length - 1][1]).trim();
-  }
-
-  // Try to find markdown ## Summary section - find all and take the last
-  // Stop at same-level ## sections (but not ###), or tool markers, or end
-  const summaryHeaderMatches = [
-    ...cleanedOutput.matchAll(/^##\s+Summary[^\n]*\n([\s\S]*?)(?=\n##\s+[^#]|\n🔧|$)/gm),
+  // Define regex patterns to try in order of priority
+  // Each pattern specifies a processor function to extract the summary from the match
+  const regexesToTry: Array<{
+    regex: RegExp;
+    processor: (m: RegExpMatchArray) => string;
+  }> = [
+    { regex: /<summary>([\s\S]*?)<\/summary>/gi, processor: (m) => m[1] },
+    { regex: /^##\s+Summary[^\n]*\n([\s\S]*?)(?=\n##\s+[^#]|\n🔧|$)/gm, processor: (m) => m[1] },
+    {
+      regex: /^##\s+(Feature|Changes|Implementation)[^\n]*\n([\s\S]*?)(?=\n##\s+[^#]|\n🔧|$)/gm,
+      processor: (m) => `## ${m[1]}\n${m[2]}`,
+    },
+    {
+      regex: /(^|\n)(All tasks completed[\s\S]*?)(?=\n🔧|\n📋|\n⚡|\n❌|$)/g,
+      processor: (m) => m[2],
+    },
+    {
+      regex:
+        /(^|\n)((I've|I have) (successfully |now )?(completed|finished|implemented)[\s\S]*?)(?=\n🔧|\n📋|\n⚡|\n❌|$)/g,
+      processor: (m) => m[2],
+    },
   ];
-  if (summaryHeaderMatches.length > 0) {
-    return cleanFragmentedText(summaryHeaderMatches[summaryHeaderMatches.length - 1][1]).trim();
-  }
 
-  // Try other summary formats (Feature, Changes, Implementation) - find all and take the last
-  const otherHeaderMatches = [
-    ...cleanedOutput.matchAll(
-      /^##\s+(Feature|Changes|Implementation)[^\n]*\n([\s\S]*?)(?=\n##\s+[^#]|\n🔧|$)/gm
-    ),
-  ];
-  if (otherHeaderMatches.length > 0) {
-    const lastMatch = otherHeaderMatches[otherHeaderMatches.length - 1];
-    return cleanFragmentedText(`## ${lastMatch[1]}\n${lastMatch[2]}`).trim();
-  }
-
-  // Try to find summary introduction lines - find all and take the last
-  const introMatches = [
-    ...cleanedOutput.matchAll(/(^|\n)(All tasks completed[\s\S]*?)(?=\n🔧|\n📋|\n⚡|\n❌|$)/g),
-  ];
-  if (introMatches.length > 0) {
-    return cleanFragmentedText(introMatches[introMatches.length - 1][2]).trim();
-  }
-
-  const completionMatches = [
-    ...cleanedOutput.matchAll(
-      /(^|\n)((I've|I have) (successfully |now )?(completed|finished|implemented)[\s\S]*?)(?=\n🔧|\n📋|\n⚡|\n❌|$)/g
-    ),
-  ];
-  if (completionMatches.length > 0) {
-    return cleanFragmentedText(completionMatches[completionMatches.length - 1][2]).trim();
+  for (const { regex, processor } of regexesToTry) {
+    const matches = [...cleanedOutput.matchAll(regex)];
+    if (matches.length > 0) {
+      const lastMatch = matches[matches.length - 1];
+      return cleanFragmentedText(processor(lastMatch)).trim();
+    }
   }
 
   return null;

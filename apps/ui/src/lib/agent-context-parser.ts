@@ -243,40 +243,28 @@ function extractSummary(content: string): string | undefined {
   // First, clean up any fragmented text from streaming
   const cleanedContent = cleanFragmentedText(content);
 
-  // Look for <summary> tags - find ALL occurrences and take the LAST one
-  const summaryTagMatches = [...cleanedContent.matchAll(/<summary>([\s\S]*?)<\/summary>/gi)];
-  if (summaryTagMatches.length > 0) {
-    // Clean up the extracted summary content as well
-    return cleanFragmentedText(summaryTagMatches[summaryTagMatches.length - 1][1]).trim();
-  }
-
-  // Fallback: Look for summary sections - find all and take the last
-  // Stop at same-level ## sections (but not ###), or tool markers, or end
-  const summaryMatches = [
-    ...cleanedContent.matchAll(/## Summary[^\n]*\n([\s\S]*?)(?=\n## [^#]|\n🔧|$)/gi),
+  // Define regex patterns to try in order of priority
+  // Each pattern specifies which capture group contains the summary content
+  const regexesToTry = [
+    { regex: /<summary>([\s\S]*?)<\/summary>/gi, group: 1 },
+    { regex: /## Summary[^\n]*\n([\s\S]*?)(?=\n## [^#]|\n🔧|$)/gi, group: 1 },
+    {
+      regex:
+        /✓ (?:Feature|Verification|Task) (?:successfully|completed|verified)[^\n]*(?:\n[^\n]{1,200})?/gi,
+      group: 0,
+    },
+    {
+      regex: /(?:What was done|Changes made|Implemented)[^\n]*\n([\s\S]*?)(?=\n## [^#]|\n🔧|$)/gi,
+      group: 1,
+    },
   ];
-  if (summaryMatches.length > 0) {
-    return cleanFragmentedText(summaryMatches[summaryMatches.length - 1][1]).trim();
-  }
 
-  // Look for completion markers and extract surrounding text - find all and take the last
-  const completionMatches = [
-    ...cleanedContent.matchAll(
-      /✓ (?:Feature|Verification|Task) (?:successfully|completed|verified)[^\n]*(?:\n[^\n]{1,200})?/gi
-    ),
-  ];
-  if (completionMatches.length > 0) {
-    return cleanFragmentedText(completionMatches[completionMatches.length - 1][0]).trim();
-  }
-
-  // Look for "What was done" type sections - find all and take the last
-  const whatWasDoneMatches = [
-    ...cleanedContent.matchAll(
-      /(?:What was done|Changes made|Implemented)[^\n]*\n([\s\S]*?)(?=\n## [^#]|\n🔧|$)/gi
-    ),
-  ];
-  if (whatWasDoneMatches.length > 0) {
-    return cleanFragmentedText(whatWasDoneMatches[whatWasDoneMatches.length - 1][1]).trim();
+  for (const { regex, group } of regexesToTry) {
+    const matches = [...cleanedContent.matchAll(regex)];
+    if (matches.length > 0) {
+      const lastMatch = matches[matches.length - 1];
+      return cleanFragmentedText(lastMatch[group]).trim();
+    }
   }
 
   return undefined;
