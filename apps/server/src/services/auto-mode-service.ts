@@ -71,6 +71,7 @@ import {
 import { TypedEventBus } from './typed-event-bus.js';
 import { WorktreeResolver } from './worktree-resolver.js';
 import { FeatureStateManager } from './feature-state-manager.js';
+import { PlanApprovalService } from './plan-approval-service.js';
 import type { SettingsService } from './settings-service.js';
 import { pipelineService, PipelineService } from './pipeline-service.js';
 import {
@@ -341,12 +342,7 @@ interface AutoLoopState {
   isRunning: boolean;
 }
 
-interface PendingApproval {
-  resolve: (result: { approved: boolean; editedPlan?: string; feedback?: string }) => void;
-  reject: (error: Error) => void;
-  featureId: string;
-  projectPath: string;
-}
+// PendingApproval interface moved to PlanApprovalService
 
 interface AutoModeConfig {
   maxConcurrency: number;
@@ -421,7 +417,7 @@ export class AutoModeService {
   private autoLoopRunning = false;
   private autoLoopAbortController: AbortController | null = null;
   private config: AutoModeConfig | null = null;
-  private pendingApprovals = new Map<string, PendingApproval>();
+  private planApprovalService: PlanApprovalService;
   private settingsService: SettingsService | null = null;
   // Track consecutive failures to detect quota/API issues (legacy global, now per-project in autoLoopsByProject)
   private consecutiveFailures: { timestamp: number; error: string }[] = [];
@@ -435,7 +431,8 @@ export class AutoModeService {
     concurrencyManager?: ConcurrencyManager,
     eventBus?: TypedEventBus,
     worktreeResolver?: WorktreeResolver,
-    featureStateManager?: FeatureStateManager
+    featureStateManager?: FeatureStateManager,
+    planApprovalService?: PlanApprovalService
   ) {
     this.events = events;
     this.eventBus = eventBus ?? new TypedEventBus(events);
@@ -447,6 +444,9 @@ export class AutoModeService {
     this.concurrencyManager =
       concurrencyManager ??
       new ConcurrencyManager((projectPath) => this.worktreeResolver.getCurrentBranch(projectPath));
+    this.planApprovalService =
+      planApprovalService ??
+      new PlanApprovalService(this.eventBus, this.featureStateManager, this.settingsService);
   }
 
   /**
@@ -1541,9 +1541,6 @@ export class AutoModeService {
       }
     } finally {
       logger.info(`Feature ${featureId} execution ended, cleaning up runningFeatures`);
-      logger.info(
-        `Pending approvals at cleanup: ${Array.from(this.pendingApprovals.keys()).join(', ') || 'none'}`
-      );
       this.releaseRunningFeature(featureId);
 
       // Update execution state after feature completes
@@ -2832,60 +2829,18 @@ Format your response as a structured markdown document.`;
 
   /**
    * Wait for plan approval from the user.
-   * Returns a promise that resolves when the user approves/rejects the plan.
-   * Times out after 30 minutes to prevent indefinite memory retention.
+   * Delegates to PlanApprovalService.
    */
   waitForPlanApproval(
     featureId: string,
     projectPath: string
   ): Promise<{ approved: boolean; editedPlan?: string; feedback?: string }> {
-    const APPROVAL_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-
-    logger.info(`Registering pending approval for feature ${featureId}`);
-    logger.info(
-      `Current pending approvals: ${Array.from(this.pendingApprovals.keys()).join(', ') || 'none'}`
-    );
-    return new Promise((resolve, reject) => {
-      // Set up timeout to prevent indefinite waiting and memory leaks
-      const timeoutId = setTimeout(() => {
-        const pending = this.pendingApprovals.get(featureId);
-        if (pending) {
-          logger.warn(`Plan approval for feature ${featureId} timed out after 30 minutes`);
-          this.pendingApprovals.delete(featureId);
-          reject(
-            new Error('Plan approval timed out after 30 minutes - feature execution cancelled')
-          );
-        }
-      }, APPROVAL_TIMEOUT_MS);
-
-      // Wrap resolve/reject to clear timeout when approval is resolved
-      const wrappedResolve = (result: {
-        approved: boolean;
-        editedPlan?: string;
-        feedback?: string;
-      }) => {
-        clearTimeout(timeoutId);
-        resolve(result);
-      };
-
-      const wrappedReject = (error: Error) => {
-        clearTimeout(timeoutId);
-        reject(error);
-      };
-
-      this.pendingApprovals.set(featureId, {
-        resolve: wrappedResolve,
-        reject: wrappedReject,
-        featureId,
-        projectPath,
-      });
-      logger.info(`Pending approval registered for feature ${featureId} (timeout: 30 minutes)`);
-    });
+    return this.planApprovalService.waitForApproval(featureId, projectPath);
   }
 
   /**
    * Resolve a pending plan approval.
-   * Called when the user approves or rejects the plan via API.
+   * Delegates to PlanApprovalService, handles recovery execution when needsRecovery=true.
    */
   async resolvePlanApproval(
     featureId: string,
@@ -2894,136 +2849,53 @@ Format your response as a structured markdown document.`;
     feedback?: string,
     projectPathFromClient?: string
   ): Promise<{ success: boolean; error?: string }> {
-    logger.info(`resolvePlanApproval called for feature ${featureId}, approved=${approved}`);
-    logger.info(
-      `Current pending approvals: ${Array.from(this.pendingApprovals.keys()).join(', ') || 'none'}`
-    );
-    const pending = this.pendingApprovals.get(featureId);
-
-    if (!pending) {
-      logger.info(`No pending approval in Map for feature ${featureId}`);
-
-      // RECOVERY: If no pending approval but we have projectPath from client,
-      // check if feature's planSpec.status is 'generated' and handle recovery
-      if (projectPathFromClient) {
-        logger.info(`Attempting recovery with projectPath: ${projectPathFromClient}`);
-        const feature = await this.loadFeature(projectPathFromClient, featureId);
-
-        if (feature?.planSpec?.status === 'generated') {
-          logger.info(`Feature ${featureId} has planSpec.status='generated', performing recovery`);
-
-          if (approved) {
-            // Update planSpec to approved
-            await this.updateFeaturePlanSpec(projectPathFromClient, featureId, {
-              status: 'approved',
-              approvedAt: new Date().toISOString(),
-              reviewedByUser: true,
-              content: editedPlan || feature.planSpec.content,
-            });
-
-            // Get customized prompts from settings
-            const prompts = await getPromptCustomization(this.settingsService, '[AutoMode]');
-
-            // Build continuation prompt using centralized template
-            const planContent = editedPlan || feature.planSpec.content || '';
-            let continuationPrompt = prompts.taskExecution.continuationAfterApprovalTemplate;
-            continuationPrompt = continuationPrompt.replace(
-              /\{\{userFeedback\}\}/g,
-              feedback || ''
-            );
-            continuationPrompt = continuationPrompt.replace(/\{\{approvedPlan\}\}/g, planContent);
-
-            logger.info(`Starting recovery execution for feature ${featureId}`);
-
-            // Start feature execution with the continuation prompt (async, don't await)
-            // Pass undefined for providedWorktreePath, use options for continuation prompt
-            this.executeFeature(projectPathFromClient, featureId, true, false, undefined, {
-              continuationPrompt,
-            }).catch((error) => {
-              logger.error(`Recovery execution failed for feature ${featureId}:`, error);
-            });
-
-            return { success: true };
-          } else {
-            // Rejected - update status and emit event
-            await this.updateFeaturePlanSpec(projectPathFromClient, featureId, {
-              status: 'rejected',
-              reviewedByUser: true,
-            });
-
-            await this.updateFeatureStatus(projectPathFromClient, featureId, 'backlog');
-
-            this.eventBus.emitAutoModeEvent('plan_rejected', {
-              featureId,
-              projectPath: projectPathFromClient,
-              feedback,
-            });
-
-            return { success: true };
-          }
-        }
-      }
-
-      logger.info(
-        `ERROR: No pending approval found for feature ${featureId} and recovery not possible`
-      );
-      return {
-        success: false,
-        error: `No pending approval for feature ${featureId}`,
-      };
-    }
-    logger.info(`Found pending approval for feature ${featureId}, proceeding...`);
-
-    const { projectPath } = pending;
-
-    // Update feature's planSpec status
-    await this.updateFeaturePlanSpec(projectPath, featureId, {
-      status: approved ? 'approved' : 'rejected',
-      approvedAt: approved ? new Date().toISOString() : undefined,
-      reviewedByUser: true,
-      content: editedPlan, // Update content if user provided an edited version
+    const result = await this.planApprovalService.resolveApproval(featureId, approved, {
+      editedPlan,
+      feedback,
+      projectPath: projectPathFromClient,
     });
 
-    // If rejected with feedback, we can store it for the user to see
-    if (!approved && feedback) {
-      // Emit event so client knows the rejection reason
-      this.eventBus.emitAutoModeEvent('plan_rejected', {
-        featureId,
-        projectPath,
-        feedback,
-      });
+    // Handle recovery case - PlanApprovalService returns flag, AutoModeService executes
+    if (result.success && result.needsRecovery && projectPathFromClient) {
+      const feature = await this.loadFeature(projectPathFromClient, featureId);
+      if (feature) {
+        // Get customized prompts from settings
+        const prompts = await getPromptCustomization(this.settingsService, '[AutoMode]');
+
+        // Build continuation prompt using centralized template
+        const planContent = editedPlan || feature.planSpec?.content || '';
+        let continuationPrompt = prompts.taskExecution.continuationAfterApprovalTemplate;
+        continuationPrompt = continuationPrompt.replace(/\{\{userFeedback\}\}/g, feedback || '');
+        continuationPrompt = continuationPrompt.replace(/\{\{approvedPlan\}\}/g, planContent);
+
+        logger.info(`Starting recovery execution for feature ${featureId}`);
+
+        // Start feature execution with the continuation prompt (async, don't await)
+        this.executeFeature(projectPathFromClient, featureId, true, false, undefined, {
+          continuationPrompt,
+        }).catch((error) => {
+          logger.error(`Recovery execution failed for feature ${featureId}:`, error);
+        });
+      }
     }
 
-    // Resolve the promise with all data including feedback
-    pending.resolve({ approved, editedPlan, feedback });
-    this.pendingApprovals.delete(featureId);
-
-    return { success: true };
+    return { success: result.success, error: result.error };
   }
 
   /**
    * Cancel a pending plan approval (e.g., when feature is stopped).
+   * Delegates to PlanApprovalService.
    */
   cancelPlanApproval(featureId: string): void {
-    logger.info(`cancelPlanApproval called for feature ${featureId}`);
-    logger.info(
-      `Current pending approvals: ${Array.from(this.pendingApprovals.keys()).join(', ') || 'none'}`
-    );
-    const pending = this.pendingApprovals.get(featureId);
-    if (pending) {
-      logger.info(`Found and cancelling pending approval for feature ${featureId}`);
-      pending.reject(new Error('Plan approval cancelled - feature was stopped'));
-      this.pendingApprovals.delete(featureId);
-    } else {
-      logger.info(`No pending approval to cancel for feature ${featureId}`);
-    }
+    this.planApprovalService.cancelApproval(featureId);
   }
 
   /**
    * Check if a feature has a pending plan approval.
+   * Delegates to PlanApprovalService.
    */
   hasPendingApproval(featureId: string): boolean {
-    return this.pendingApprovals.has(featureId);
+    return this.planApprovalService.hasPendingApproval(featureId);
   }
 
   // Private helpers - delegate to extracted services
