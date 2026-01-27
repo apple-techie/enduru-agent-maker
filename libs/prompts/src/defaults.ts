@@ -965,8 +965,20 @@ export const DEFAULT_PLAN_REVISION_TEMPLATE = `The user has requested revisions 
 
 ## Instructions
 Please regenerate the specification incorporating the user's feedback.
-Keep the same format with the \`\`\`tasks block for task definitions.
-After generating the revised spec, output:
+**Current planning mode: {{planningMode}}**
+
+**CRITICAL REQUIREMENT**: Your revised specification MUST include a \`\`\`tasks code block containing task definitions in the EXACT format shown below. This is MANDATORY - without the tasks block, the system cannot track or execute tasks properly.
+
+### Required Task Format
+{{taskFormatExample}}
+
+**IMPORTANT**:
+1. The \`\`\`tasks block must appear in your response
+2. Each task MUST start with "- [ ] T###:" where ### is a sequential number (T001, T002, T003, etc.)
+3. Each task MUST include "| File:" followed by the primary file path
+4. Tasks should be ordered by dependencies (foundational tasks first)
+
+After generating the revised spec with the tasks block, output:
 "[SPEC_GENERATED] Please review the revised specification above."`;
 
 export const DEFAULT_CONTINUATION_AFTER_APPROVAL_TEMPLATE = `The plan/specification has been approved. Now implement it.

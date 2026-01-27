@@ -59,7 +59,7 @@ interface ThemeButtonProps {
   /** Handler for pointer leave events (used to clear preview) */
   onPointerLeave: (e: React.PointerEvent) => void;
   /** Handler for click events (used to select theme) */
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
 }
 
 /**
@@ -77,6 +77,7 @@ const ThemeButton = memo(function ThemeButton({
   const Icon = option.icon;
   return (
     <button
+      type="button"
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       onClick={onClick}
@@ -145,7 +146,10 @@ const ThemeColumn = memo(function ThemeColumn({
             isSelected={selectedTheme === option.value}
             onPointerEnter={() => onPreviewEnter(option.value)}
             onPointerLeave={onPreviewLeave}
-            onClick={() => onSelect(option.value)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(option.value);
+            }}
           />
         ))}
       </div>
@@ -193,7 +197,6 @@ export function ProjectContextMenu({
   const {
     moveProjectToTrash,
     theme: globalTheme,
-    setTheme,
     setProjectTheme,
     setPreviewTheme,
   } = useAppStore();
@@ -316,13 +319,24 @@ export function ProjectContextMenu({
 
   const handleThemeSelect = useCallback(
     (value: ThemeMode | typeof USE_GLOBAL_THEME) => {
+      // Clear any pending close timeout to prevent race conditions
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+        closeTimeoutRef.current = null;
+      }
+
+      // Close menu first
+      setShowThemeSubmenu(false);
+      onClose();
+
+      // Then apply theme changes
       setPreviewTheme(null);
       const isUsingGlobal = value === USE_GLOBAL_THEME;
-      setTheme(isUsingGlobal ? globalTheme : value);
+      // Only set project theme - don't change global theme
+      // The UI uses getEffectiveTheme() which handles: previewTheme ?? projectTheme ?? globalTheme
       setProjectTheme(project.id, isUsingGlobal ? null : value);
-      setShowThemeSubmenu(false);
     },
-    [globalTheme, project.id, setPreviewTheme, setProjectTheme, setTheme]
+    [onClose, project.id, setPreviewTheme, setProjectTheme]
   );
 
   const handleConfirmRemove = useCallback(() => {
@@ -426,9 +440,13 @@ export function ProjectContextMenu({
                   <div className="p-2">
                     {/* Use Global Option */}
                     <button
+                      type="button"
                       onPointerEnter={() => handlePreviewEnter(globalTheme)}
                       onPointerLeave={handlePreviewLeave}
-                      onClick={() => handleThemeSelect(USE_GLOBAL_THEME)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleThemeSelect(USE_GLOBAL_THEME);
+                      }}
                       className={cn(
                         'w-full flex items-center gap-2 px-3 py-2 rounded-md',
                         'text-sm font-medium text-left',

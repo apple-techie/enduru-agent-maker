@@ -946,7 +946,7 @@ export class HttpApiClient implements ElectronAPI {
     return response.json();
   }
 
-  private async get<T>(endpoint: string): Promise<T> {
+  async get<T>(endpoint: string): Promise<T> {
     // Ensure API key is initialized before making request
     await waitForApiKeyInit();
     const response = await fetch(`${this.serverUrl}${endpoint}`, {
@@ -976,7 +976,7 @@ export class HttpApiClient implements ElectronAPI {
     return response.json();
   }
 
-  private async put<T>(endpoint: string, body?: unknown): Promise<T> {
+  async put<T>(endpoint: string, body?: unknown): Promise<T> {
     // Ensure API key is initialized before making request
     await waitForApiKeyInit();
     const response = await fetch(`${this.serverUrl}${endpoint}`, {

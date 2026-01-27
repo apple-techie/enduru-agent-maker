@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Folder, LucideIcon } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { cn, sanitizeForTestId } from '@/lib/utils';
@@ -19,6 +20,8 @@ export function ProjectSwitcherItem({
   onClick,
   onContextMenu,
 }: ProjectSwitcherItemProps) {
+  const [imageError, setImageError] = useState(false);
+
   // Convert index to hotkey label: 0 -> "1", 1 -> "2", ..., 8 -> "9", 9 -> "0"
   const hotkeyLabel =
     hotkeyIndex !== undefined && hotkeyIndex >= 0 && hotkeyIndex <= 9
@@ -35,7 +38,7 @@ export function ProjectSwitcherItem({
   };
 
   const IconComponent = getIconComponent();
-  const hasCustomIcon = !!project.customIconPath;
+  const hasCustomIcon = !!project.customIconPath && !imageError;
 
   // Combine project.id with sanitized name for uniqueness and readability
   // Format: project-switcher-{id}-{sanitizedName}
@@ -74,6 +77,7 @@ export function ProjectSwitcherItem({
             'w-8 h-8 rounded-lg object-cover transition-all duration-200',
             isActive ? 'ring-1 ring-brand-500/50' : 'group-hover:scale-110'
           )}
+          onError={() => setImageError(true)}
         />
       ) : (
         <IconComponent

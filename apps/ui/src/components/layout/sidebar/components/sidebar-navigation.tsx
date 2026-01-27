@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { NavigateOptions } from '@tanstack/react-router';
-import { ChevronDown, Wrench, Github } from 'lucide-react';
+import { ChevronDown, Wrench, Github, Folder } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatShortcut, useAppStore } from '@/store/app-store';
+import { getAuthenticatedImageUrl } from '@/lib/api-fetch';
 import type { NavSection } from '../types';
 import type { Project } from '@/lib/electron';
 import type { SidebarStyle } from '@automaker/types';
@@ -97,6 +100,17 @@ export function SidebarNavigation({
     return !!currentProject;
   });
 
+  // Get the icon component for the current project
+  const getProjectIcon = (): LucideIcon => {
+    if (currentProject?.icon && currentProject.icon in LucideIcons) {
+      return (LucideIcons as unknown as Record<string, LucideIcon>)[currentProject.icon];
+    }
+    return Folder;
+  };
+
+  const ProjectIcon = getProjectIcon();
+  const hasCustomIcon = !!currentProject?.customIconPath;
+
   return (
     <nav
       ref={navRef}
@@ -106,6 +120,27 @@ export function SidebarNavigation({
         sidebarStyle === 'discord' ? 'pt-3' : 'mt-1'
       )}
     >
+      {/* Project name display for classic/discord mode */}
+      {sidebarStyle === 'discord' && currentProject && sidebarOpen && (
+        <div className="mb-3">
+          <div className="flex items-center gap-2.5 px-3 py-2">
+            {hasCustomIcon ? (
+              <img
+                src={getAuthenticatedImageUrl(currentProject.customIconPath!, currentProject.path)}
+                alt={currentProject.name}
+                className="w-5 h-5 rounded object-cover"
+              />
+            ) : (
+              <ProjectIcon className="w-5 h-5 text-brand-500 shrink-0" />
+            )}
+            <span className="text-sm font-medium text-foreground truncate">
+              {currentProject.name}
+            </span>
+          </div>
+          <div className="h-px bg-border/40 mx-1 mt-1" />
+        </div>
+      )}
+
       {/* Navigation sections */}
       {visibleSections.map((section, sectionIdx) => {
         const isCollapsed = section.label ? collapsedNavSections[section.label] : false;

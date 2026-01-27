@@ -4597,21 +4597,54 @@ This mock response was generated because AUTOMAKER_MOCK_AGENT=true was set.
                           planVersion,
                         });
 
-                        // Build revision prompt
-                        let revisionPrompt = `The user has requested revisions to the plan/specification.
+                        // Build revision prompt using customizable template
+                        const revisionPrompts = await getPromptCustomization(
+                          this.settingsService,
+                          '[AutoMode]'
+                        );
 
-## Previous Plan (v${planVersion - 1})
-${hasEdits ? approvalResult.editedPlan : currentPlanContent}
+                        // Get task format example based on planning mode
+                        const taskFormatExample =
+                          planningMode === 'full'
+                            ? `\`\`\`tasks
+## Phase 1: Foundation
+- [ ] T001: [Description] | File: [path/to/file]
+- [ ] T002: [Description] | File: [path/to/file]
 
-## User Feedback
-${approvalResult.feedback || 'Please revise the plan based on the edits above.'}
+## Phase 2: Core Implementation
+- [ ] T003: [Description] | File: [path/to/file]
+- [ ] T004: [Description] | File: [path/to/file]
+\`\`\``
+                            : `\`\`\`tasks
+- [ ] T001: [Description] | File: [path/to/file]
+- [ ] T002: [Description] | File: [path/to/file]
+- [ ] T003: [Description] | File: [path/to/file]
+\`\`\``;
 
-## Instructions
-Please regenerate the specification incorporating the user's feedback.
-Keep the same format with the \`\`\`tasks block for task definitions.
-After generating the revised spec, output:
-"[SPEC_GENERATED] Please review the revised specification above."
-`;
+                        let revisionPrompt = revisionPrompts.taskExecution.planRevisionTemplate;
+                        revisionPrompt = revisionPrompt.replace(
+                          /\{\{planVersion\}\}/g,
+                          String(planVersion - 1)
+                        );
+                        revisionPrompt = revisionPrompt.replace(
+                          /\{\{previousPlan\}\}/g,
+                          hasEdits
+                            ? approvalResult.editedPlan || currentPlanContent
+                            : currentPlanContent
+                        );
+                        revisionPrompt = revisionPrompt.replace(
+                          /\{\{userFeedback\}\}/g,
+                          approvalResult.feedback ||
+                            'Please revise the plan based on the edits above.'
+                        );
+                        revisionPrompt = revisionPrompt.replace(
+                          /\{\{planningMode\}\}/g,
+                          planningMode
+                        );
+                        revisionPrompt = revisionPrompt.replace(
+                          /\{\{taskFormatExample\}\}/g,
+                          taskFormatExample
+                        );
 
                         // Update status to regenerating
                         await this.updateFeaturePlanSpec(projectPath, featureId, {
@@ -4662,6 +4695,26 @@ After generating the revised spec, output:
                         // Re-parse tasks from revised plan
                         const revisedTasks = parseTasksFromSpec(currentPlanContent);
                         logger.info(`Revised plan has ${revisedTasks.length} tasks`);
+
+                        // Warn if no tasks found in spec/full mode - this may cause fallback to single-agent
+                        if (
+                          revisedTasks.length === 0 &&
+                          (planningMode === 'spec' || planningMode === 'full')
+                        ) {
+                          logger.warn(
+                            `WARNING: Revised plan in ${planningMode} mode has no tasks! ` +
+                              `This will cause fallback to single-agent execution. ` +
+                              `The AI may have omitted the required \`\`\`tasks block.`
+                          );
+                          this.emitAutoModeEvent('plan_revision_warning', {
+                            featureId,
+                            projectPath,
+                            branchName,
+                            planningMode,
+                            warning:
+                              'Revised plan missing tasks block - will use single-agent execution',
+                          });
+                        }
 
                         // Update planSpec with revised content
                         await this.updateFeaturePlanSpec(projectPath, featureId, {

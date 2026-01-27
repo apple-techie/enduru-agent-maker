@@ -169,9 +169,10 @@ export class EventHookService {
     }
 
     // Build context for variable substitution
+    // Use loaded featureName (from feature.title) or fall back to payload.featureName
     const context: HookContext = {
       featureId: payload.featureId,
-      featureName: payload.featureName,
+      featureName: featureName || payload.featureName,
       projectPath: payload.projectPath,
       projectName: payload.projectPath ? this.extractProjectName(payload.projectPath) : undefined,
       error: payload.error || payload.message,

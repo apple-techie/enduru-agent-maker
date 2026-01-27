@@ -19,6 +19,7 @@ import type { StoredEventSummary, StoredEvent, EventHookTrigger } from '@automak
 import { EVENT_HOOK_TRIGGER_LABELS } from '@automaker/types';
 import { getHttpApiClient } from '@/lib/http-api-client';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { toast } from 'sonner';
 
 export function EventHistoryView() {
   const currentProject = useAppStore((state) => state.currentProject);
@@ -85,16 +86,18 @@ export function EventHistoryView() {
         const failCount = hookResults.filter((r) => !r.success).length;
 
         if (hooksTriggered === 0) {
-          alert('No matching hooks found for this event trigger.');
+          toast.info('No matching hooks found for this event trigger.');
         } else if (failCount === 0) {
-          alert(`Successfully ran ${successCount} hook(s).`);
+          toast.success(`Successfully ran ${successCount} hook(s).`);
         } else {
-          alert(`Ran ${hooksTriggered} hook(s): ${successCount} succeeded, ${failCount} failed.`);
+          toast.warning(
+            `Ran ${hooksTriggered} hook(s): ${successCount} succeeded, ${failCount} failed.`
+          );
         }
       }
     } catch (error) {
       console.error('Failed to replay event:', error);
-      alert('Failed to replay event. Check console for details.');
+      toast.error('Failed to replay event. Check console for details.');
     } finally {
       setReplayingEvent(null);
     }
