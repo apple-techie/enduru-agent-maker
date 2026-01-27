@@ -87,6 +87,12 @@ import { extractSummary } from './spec-parser.js';
 import { AgentExecutor } from './agent-executor.js';
 import { PipelineOrchestrator } from './pipeline-orchestrator.js';
 import { TestRunnerService } from './test-runner-service.js';
+import {
+  AutoLoopCoordinator,
+  getWorktreeAutoLoopKey as getCoordinatorWorktreeKey,
+} from './auto-loop-coordinator.js';
+import { ExecutionService } from './execution-service.js';
+import { RecoveryService } from './recovery-service.js';
 
 const execAsync = promisify(exec);
 
@@ -187,6 +193,9 @@ export class AutoModeService {
   private planApprovalService: PlanApprovalService;
   private agentExecutor: AgentExecutor;
   private pipelineOrchestrator: PipelineOrchestrator;
+  private autoLoopCoordinator: AutoLoopCoordinator;
+  private executionService: ExecutionService;
+  private recoveryService: RecoveryService;
   private settingsService: SettingsService | null = null;
   // Track consecutive failures to detect quota/API issues (legacy global, now per-project in autoLoopsByProject)
   private consecutiveFailures: { timestamp: number; error: string }[] = [];
@@ -203,7 +212,10 @@ export class AutoModeService {
     featureStateManager?: FeatureStateManager,
     planApprovalService?: PlanApprovalService,
     agentExecutor?: AgentExecutor,
-    pipelineOrchestrator?: PipelineOrchestrator
+    pipelineOrchestrator?: PipelineOrchestrator,
+    autoLoopCoordinator?: AutoLoopCoordinator,
+    executionService?: ExecutionService,
+    recoveryService?: RecoveryService
   ) {
     this.events = events;
     this.eventBus = eventBus ?? new TypedEventBus(events);
@@ -256,6 +268,106 @@ export class AutoModeService {
             model,
             options
           )
+      );
+
+    // AutoLoopCoordinator manages loop lifecycle, failure tracking, start/stop
+    this.autoLoopCoordinator =
+      autoLoopCoordinator ??
+      new AutoLoopCoordinator(
+        this.eventBus,
+        this.concurrencyManager,
+        this.settingsService,
+        // Callbacks wrapping AutoModeService methods
+        (projectPath, featureId, useWorktrees, isAutoMode) =>
+          this.executeFeature(projectPath, featureId, useWorktrees, isAutoMode),
+        (projectPath, branchName) => this.loadPendingFeatures(projectPath, branchName),
+        (projectPath, branchName, maxConcurrency) =>
+          this.saveExecutionStateForProject(projectPath, branchName, maxConcurrency),
+        (projectPath, branchName) => this.clearExecutionState(projectPath, branchName),
+        (projectPath) => this.resetStuckFeatures(projectPath),
+        (feature) => this.isFeatureFinished(feature),
+        (featureId) => this.isFeatureRunning(featureId)
+      );
+
+    // ExecutionService coordinates feature execution lifecycle
+    this.executionService =
+      executionService ??
+      new ExecutionService(
+        this.eventBus,
+        this.concurrencyManager,
+        this.worktreeResolver,
+        this.settingsService,
+        // Callbacks wrapping AutoModeService methods
+        (workDir, featureId, prompt, abortController, projectPath, imagePaths, model, options) =>
+          this.runAgent(
+            workDir,
+            featureId,
+            prompt,
+            abortController,
+            projectPath,
+            imagePaths,
+            model,
+            options
+          ),
+        (context) => this.pipelineOrchestrator.executePipeline(context),
+        (projectPath, featureId, status) =>
+          this.updateFeatureStatus(projectPath, featureId, status),
+        (projectPath, featureId) => this.loadFeature(projectPath, featureId),
+        (feature) => this.getPlanningPromptPrefix(feature),
+        (projectPath, featureId, summary) =>
+          this.saveFeatureSummary(projectPath, featureId, summary),
+        (projectPath, feature, agentOutput) =>
+          this.recordLearningsFromFeature(projectPath, feature, agentOutput),
+        (projectPath, featureId) => this.contextExists(projectPath, featureId),
+        (projectPath, featureId, useWorktrees, _calledInternally) =>
+          this.resumeFeature(projectPath, featureId, useWorktrees, _calledInternally),
+        (errorInfo) =>
+          this.autoLoopCoordinator.trackFailureAndCheckPauseForProject(
+            '', // projectPath resolved at call site
+            errorInfo
+          ),
+        (errorInfo) =>
+          this.autoLoopCoordinator.signalShouldPauseForProject(
+            '', // projectPath resolved at call site
+            errorInfo
+          ),
+        () => {
+          /* No-op: success recording handled by autoLoopCoordinator */
+        },
+        (projectPath) => this.saveExecutionState(projectPath),
+        loadContextFiles
+      );
+
+    // RecoveryService handles crash recovery and feature resumption
+    this.recoveryService =
+      recoveryService ??
+      new RecoveryService(
+        this.eventBus,
+        this.concurrencyManager,
+        this.settingsService,
+        // Callbacks wrapping AutoModeService methods
+        (projectPath, featureId, useWorktrees, isAutoMode, providedWorktreePath, options) =>
+          this.executeFeature(
+            projectPath,
+            featureId,
+            useWorktrees,
+            isAutoMode,
+            providedWorktreePath,
+            options
+          ),
+        (projectPath, featureId) => this.loadFeature(projectPath, featureId),
+        (projectPath, featureId, status) =>
+          this.pipelineOrchestrator.detectPipelineStatus(projectPath, featureId, status),
+        (projectPath, feature, useWorktrees, pipelineInfo) =>
+          this.pipelineOrchestrator.resumePipeline(
+            projectPath,
+            feature,
+            useWorktrees,
+            pipelineInfo
+          ),
+        (featureId) => this.isFeatureRunning(featureId),
+        (options) => this.acquireRunningFeature(options),
+        (featureId) => this.releaseRunningFeature(featureId)
       );
   }
 
