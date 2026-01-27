@@ -663,6 +663,9 @@ export class AutoModeService {
 
   /**
    * Execute a single feature
+   *
+   * Delegates to ExecutionService for the actual execution lifecycle.
+   *
    * @param projectPath - The main project path
    * @param featureId - The feature ID to execute
    * @param useWorktrees - Whether to use worktrees for isolation
@@ -680,342 +683,27 @@ export class AutoModeService {
       _calledInternally?: boolean;
     }
   ): Promise<void> {
-    const tempRunningFeature = this.acquireRunningFeature({
-      featureId,
+    return this.executionService.executeFeature(
       projectPath,
+      featureId,
+      useWorktrees,
       isAutoMode,
-      allowReuse: options?._calledInternally,
-    });
-    const abortController = tempRunningFeature.abortController;
-
-    // Save execution state when feature starts
-    if (isAutoMode) {
-      await this.saveExecutionState(projectPath);
-    }
-    // Declare feature outside try block so it's available in catch for error reporting
-    let feature: Awaited<ReturnType<typeof this.loadFeature>> | null = null;
-
-    try {
-      // Validate that project path is allowed using centralized validation
-      validateWorkingDirectory(projectPath);
-
-      // Load feature details FIRST to get status and plan info
-      feature = await this.loadFeature(projectPath, featureId);
-      if (!feature) {
-        throw new Error(`Feature ${featureId} not found`);
-      }
-
-      // Check if feature has existing context - if so, resume instead of starting fresh
-      // Skip this check if we're already being called with a continuation prompt (from resumeFeature)
-      if (!options?.continuationPrompt) {
-        // If feature has an approved plan but we don't have a continuation prompt yet,
-        // we should build one to ensure it proceeds with multi-agent execution
-        if (feature.planSpec?.status === 'approved') {
-          logger.info(`Feature ${featureId} has approved plan, building continuation prompt`);
-
-          // Get customized prompts from settings
-          const prompts = await getPromptCustomization(this.settingsService, '[AutoMode]');
-          const planContent = feature.planSpec.content || '';
-
-          // Build continuation prompt using centralized template
-          let continuationPrompt = prompts.taskExecution.continuationAfterApprovalTemplate;
-          continuationPrompt = continuationPrompt.replace(/\{\{userFeedback\}\}/g, '');
-          continuationPrompt = continuationPrompt.replace(/\{\{approvedPlan\}\}/g, planContent);
-
-          // Recursively call executeFeature with the continuation prompt
-          // Feature is already tracked, the recursive call will reuse the entry
-          return await this.executeFeature(
-            projectPath,
-            featureId,
-            useWorktrees,
-            isAutoMode,
-            providedWorktreePath,
-            {
-              continuationPrompt,
-              _calledInternally: true,
-            }
-          );
-        }
-
-        const hasExistingContext = await this.contextExists(projectPath, featureId);
-        if (hasExistingContext) {
-          logger.info(
-            `Feature ${featureId} has existing context, resuming instead of starting fresh`
-          );
-          // Feature is already tracked, resumeFeature will reuse the entry
-          return await this.resumeFeature(projectPath, featureId, useWorktrees, true);
-        }
-      }
-
-      // Derive workDir from feature.branchName
-      // Worktrees should already be created when the feature is added/edited
-      let worktreePath: string | null = null;
-      const branchName = feature.branchName;
-
-      if (useWorktrees && branchName) {
-        // Try to find existing worktree for this branch
-        // Worktree should already exist (created when feature was added/edited)
-        worktreePath = await this.worktreeResolver.findWorktreeForBranch(projectPath, branchName);
-
-        if (worktreePath) {
-          logger.info(`Using worktree for branch "${branchName}": ${worktreePath}`);
-        } else {
-          // Worktree doesn't exist - log warning and continue with project path
-          logger.warn(`Worktree for branch "${branchName}" not found, using project path`);
-        }
-      }
-
-      // Ensure workDir is always an absolute path for cross-platform compatibility
-      const workDir = worktreePath ? path.resolve(worktreePath) : path.resolve(projectPath);
-
-      // Validate that working directory is allowed using centralized validation
-      validateWorkingDirectory(workDir);
-
-      // Update running feature with actual worktree info
-      tempRunningFeature.worktreePath = worktreePath;
-      tempRunningFeature.branchName = branchName ?? null;
-
-      // Update feature status to in_progress BEFORE emitting event
-      // This ensures the frontend sees the updated status when it reloads features
-      await this.updateFeatureStatus(projectPath, featureId, 'in_progress');
-
-      // Emit feature start event AFTER status update so frontend sees correct status
-      this.eventBus.emitAutoModeEvent('auto_mode_feature_start', {
-        featureId,
-        projectPath,
-        branchName: feature.branchName ?? null,
-        feature: {
-          id: featureId,
-          title: feature.title || 'Loading...',
-          description: feature.description || 'Feature is starting',
-        },
-      });
-
-      // Load autoLoadClaudeMd setting to determine context loading strategy
-      const autoLoadClaudeMd = await getAutoLoadClaudeMdSetting(
-        projectPath,
-        this.settingsService,
-        '[AutoMode]'
-      );
-
-      // Get customized prompts from settings
-      const prompts = await getPromptCustomization(this.settingsService, '[AutoMode]');
-
-      // Build the prompt - use continuation prompt if provided (for recovery after plan approval)
-      let prompt: string;
-      // Load project context files (CLAUDE.md, CODE_QUALITY.md, etc.) and memory files
-      // Context loader uses task context to select relevant memory files
-      const contextResult = await loadContextFiles({
-        projectPath,
-        fsModule: secureFs as Parameters<typeof loadContextFiles>[0]['fsModule'],
-        taskContext: {
-          title: feature.title ?? '',
-          description: feature.description ?? '',
-        },
-      });
-
-      // When autoLoadClaudeMd is enabled, filter out CLAUDE.md to avoid duplication
-      // (SDK handles CLAUDE.md via settingSources), but keep other context files like CODE_QUALITY.md
-      // Note: contextResult.formattedPrompt now includes both context AND memory
-      const combinedSystemPrompt = filterClaudeMdFromContext(contextResult, autoLoadClaudeMd);
-
-      if (options?.continuationPrompt) {
-        // Continuation prompt is used when recovering from a plan approval
-        // The plan was already approved, so skip the planning phase
-        prompt = options.continuationPrompt;
-        logger.info(`Using continuation prompt for feature ${featureId}`);
-      } else {
-        // Normal flow: build prompt with planning phase
-        const featurePrompt = this.buildFeaturePrompt(feature, prompts.taskExecution);
-        const planningPrefix = await this.getPlanningPromptPrefix(feature);
-        prompt = planningPrefix + featurePrompt;
-
-        // Emit planning mode info
-        if (feature.planningMode && feature.planningMode !== 'skip') {
-          this.eventBus.emitAutoModeEvent('planning_started', {
-            featureId: feature.id,
-            mode: feature.planningMode,
-            message: `Starting ${feature.planningMode} planning phase`,
-          });
-        }
-      }
-
-      // Extract image paths from feature
-      const imagePaths = feature.imagePaths?.map((img) =>
-        typeof img === 'string' ? img : img.path
-      );
-
-      // Get model from feature and determine provider
-      const model = resolveModelString(feature.model, DEFAULT_MODELS.claude);
-      const provider = ProviderFactory.getProviderNameForModel(model);
-      logger.info(
-        `Executing feature ${featureId} with model: ${model}, provider: ${provider} in ${workDir}`
-      );
-
-      // Store model and provider in running feature for tracking
-      tempRunningFeature.model = model;
-      tempRunningFeature.provider = provider;
-
-      // Run the agent with the feature's model and images
-      // Context files are passed as system prompt for higher priority
-      await this.runAgent(
-        workDir,
-        featureId,
-        prompt,
-        abortController,
-        projectPath,
-        imagePaths,
-        model,
-        {
-          projectPath,
-          planningMode: feature.planningMode,
-          requirePlanApproval: feature.requirePlanApproval,
-          systemPrompt: combinedSystemPrompt || undefined,
-          autoLoadClaudeMd,
-          thinkingLevel: feature.thinkingLevel,
-          branchName: feature.branchName ?? null,
-        }
-      );
-
-      // Check for pipeline steps and execute them
-      const pipelineConfig = await pipelineService.getPipelineConfig(projectPath);
-      // Filter out excluded pipeline steps and sort by order
-      const excludedStepIds = new Set(feature.excludedPipelineSteps || []);
-      const sortedSteps = [...(pipelineConfig?.steps || [])]
-        .sort((a, b) => a.order - b.order)
-        .filter((step) => !excludedStepIds.has(step.id));
-
-      if (sortedSteps.length > 0) {
-        // Execute pipeline steps sequentially via PipelineOrchestrator
-        await this.pipelineOrchestrator.executePipeline({
-          projectPath,
-          featureId,
-          feature,
-          steps: sortedSteps,
-          workDir,
-          worktreePath,
-          branchName: feature.branchName ?? null,
-          abortController,
-          autoLoadClaudeMd,
-          testAttempts: 0,
-          maxTestAttempts: 5,
-        });
-      }
-
-      // Determine final status based on testing mode:
-      // - skipTests=false (automated testing): go directly to 'verified' (no manual verify needed)
-      // - skipTests=true (manual verification): go to 'waiting_approval' for manual review
-      const finalStatus = feature.skipTests ? 'waiting_approval' : 'verified';
-      await this.updateFeatureStatus(projectPath, featureId, finalStatus);
-
-      // Record learnings, memory usage, and extract summary after successful feature completion
-      try {
-        const featureDir = getFeatureDir(projectPath, featureId);
-        const outputPath = path.join(featureDir, 'agent-output.md');
-        let agentOutput = '';
-        try {
-          const outputContent = await secureFs.readFile(outputPath, 'utf-8');
-          agentOutput =
-            typeof outputContent === 'string' ? outputContent : outputContent.toString();
-        } catch {
-          // Agent output might not exist yet
-        }
-
-        // Extract and save summary from agent output
-        if (agentOutput) {
-          const summary = extractSummary(agentOutput);
-          if (summary) {
-            logger.info(`Extracted summary for feature ${featureId}`);
-            await this.saveFeatureSummary(projectPath, featureId, summary);
-          }
-        }
-
-        // Record memory usage if we loaded any memory files
-        if (contextResult.memoryFiles.length > 0 && agentOutput) {
-          await recordMemoryUsage(
-            projectPath,
-            contextResult.memoryFiles,
-            agentOutput,
-            true, // success
-            secureFs as Parameters<typeof recordMemoryUsage>[4]
-          );
-        }
-
-        // Extract and record learnings from the agent output
-        await this.recordLearningsFromFeature(projectPath, feature, agentOutput);
-      } catch (learningError) {
-        console.warn('[AutoMode] Failed to record learnings:', learningError);
-      }
-
-      this.eventBus.emitAutoModeEvent('auto_mode_feature_complete', {
-        featureId,
-        featureName: feature.title,
-        branchName: feature.branchName ?? null,
-        passes: true,
-        message: `Feature completed in ${Math.round(
-          (Date.now() - tempRunningFeature.startTime) / 1000
-        )}s${finalStatus === 'verified' ? ' - auto-verified' : ''}`,
-        projectPath,
-        model: tempRunningFeature.model,
-        provider: tempRunningFeature.provider,
-      });
-    } catch (error) {
-      const errorInfo = classifyError(error);
-
-      if (errorInfo.isAbort) {
-        this.eventBus.emitAutoModeEvent('auto_mode_feature_complete', {
-          featureId,
-          featureName: feature?.title,
-          branchName: feature?.branchName ?? null,
-          passes: false,
-          message: 'Feature stopped by user',
-          projectPath,
-        });
-      } else {
-        logger.error(`Feature ${featureId} failed:`, error);
-        await this.updateFeatureStatus(projectPath, featureId, 'backlog');
-        this.eventBus.emitAutoModeEvent('auto_mode_error', {
-          featureId,
-          featureName: feature?.title,
-          branchName: feature?.branchName ?? null,
-          error: errorInfo.message,
-          errorType: errorInfo.type,
-          projectPath,
-        });
-
-        // Note: Failure tracking is now handled by AutoLoopCoordinator for auto-mode
-        // features. Manual feature execution doesn't trigger pause logic.
-      }
-    } finally {
-      logger.info(`Feature ${featureId} execution ended, cleaning up runningFeatures`);
-      this.releaseRunningFeature(featureId);
-
-      // Update execution state after feature completes
-      if (this.autoLoopRunning && projectPath) {
-        await this.saveExecutionState(projectPath);
-      }
-    }
+      providedWorktreePath,
+      options
+    );
   }
 
   /**
    * Stop a specific feature
+   *
+   * Delegates to ExecutionService for stopping the feature.
+   * Additionally cancels any pending plan approval.
    */
   async stopFeature(featureId: string): Promise<boolean> {
-    const running = this.concurrencyManager.getRunningFeature(featureId);
-    if (!running) {
-      return false;
-    }
-
     // Cancel any pending plan approval for this feature
     this.cancelPlanApproval(featureId);
 
-    running.abortController.abort();
-
-    // Remove from running features immediately to allow resume
-    // The abort signal will still propagate to stop any ongoing execution
-    this.releaseRunningFeature(featureId, { force: true });
-
-    return true;
+    return this.executionService.stopFeature(featureId);
   }
 
   /**
