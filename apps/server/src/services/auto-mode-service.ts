@@ -91,6 +91,7 @@ import {
   detectSpecFallback,
   extractSummary,
 } from './spec-parser.js';
+import { AgentExecutor } from './agent-executor.js';
 
 const execAsync = promisify(exec);
 
@@ -209,6 +210,7 @@ export class AutoModeService {
   private autoLoopAbortController: AbortController | null = null;
   private config: AutoModeConfig | null = null;
   private planApprovalService: PlanApprovalService;
+  private agentExecutor: AgentExecutor;
   private settingsService: SettingsService | null = null;
   // Track consecutive failures to detect quota/API issues (legacy global, now per-project in autoLoopsByProject)
   private consecutiveFailures: { timestamp: number; error: string }[] = [];
@@ -223,7 +225,8 @@ export class AutoModeService {
     eventBus?: TypedEventBus,
     worktreeResolver?: WorktreeResolver,
     featureStateManager?: FeatureStateManager,
-    planApprovalService?: PlanApprovalService
+    planApprovalService?: PlanApprovalService,
+    agentExecutor?: AgentExecutor
   ) {
     this.events = events;
     this.eventBus = eventBus ?? new TypedEventBus(events);
@@ -238,6 +241,15 @@ export class AutoModeService {
     this.planApprovalService =
       planApprovalService ??
       new PlanApprovalService(this.eventBus, this.featureStateManager, this.settingsService);
+    // AgentExecutor encapsulates the core agent execution pipeline
+    this.agentExecutor =
+      agentExecutor ??
+      new AgentExecutor(
+        this.eventBus,
+        this.featureStateManager,
+        this.planApprovalService,
+        this.settingsService
+      );
   }
 
   /**
