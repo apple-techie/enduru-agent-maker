@@ -85,6 +85,11 @@ import {
 import { getNotificationService } from './notification-service.js';
 import { extractSummary } from './spec-parser.js';
 import { AgentExecutor } from './agent-executor.js';
+import {
+  PipelineOrchestrator,
+  type PipelineStatusInfo as OrchestratorPipelineStatusInfo,
+} from './pipeline-orchestrator.js';
+import { TestRunnerService } from './test-runner-service.js';
 
 const execAsync = promisify(exec);
 
@@ -204,6 +209,7 @@ export class AutoModeService {
   private config: AutoModeConfig | null = null;
   private planApprovalService: PlanApprovalService;
   private agentExecutor: AgentExecutor;
+  private pipelineOrchestrator: PipelineOrchestrator;
   private settingsService: SettingsService | null = null;
   // Track consecutive failures to detect quota/API issues (legacy global, now per-project in autoLoopsByProject)
   private consecutiveFailures: { timestamp: number; error: string }[] = [];
@@ -219,7 +225,8 @@ export class AutoModeService {
     worktreeResolver?: WorktreeResolver,
     featureStateManager?: FeatureStateManager,
     planApprovalService?: PlanApprovalService,
-    agentExecutor?: AgentExecutor
+    agentExecutor?: AgentExecutor,
+    pipelineOrchestrator?: PipelineOrchestrator
   ) {
     this.events = events;
     this.eventBus = eventBus ?? new TypedEventBus(events);
@@ -242,6 +249,36 @@ export class AutoModeService {
         this.featureStateManager,
         this.planApprovalService,
         this.settingsService
+      );
+    // PipelineOrchestrator encapsulates pipeline step execution
+    this.pipelineOrchestrator =
+      pipelineOrchestrator ??
+      new PipelineOrchestrator(
+        this.eventBus,
+        this.featureStateManager,
+        this.agentExecutor,
+        new TestRunnerService(),
+        this.worktreeResolver,
+        this.concurrencyManager,
+        this.settingsService,
+        // Callbacks wrapping AutoModeService methods
+        (projectPath, featureId, status) =>
+          this.updateFeatureStatus(projectPath, featureId, status),
+        loadContextFiles,
+        (feature, prompts) => this.buildFeaturePrompt(feature, prompts),
+        (projectPath, featureId, useWorktrees, useScreenshots, model, options) =>
+          this.executeFeature(projectPath, featureId, useWorktrees, useScreenshots, model, options),
+        (workDir, featureId, prompt, abortController, projectPath, imagePaths, model, options) =>
+          this.runAgent(
+            workDir,
+            featureId,
+            prompt,
+            abortController,
+            projectPath,
+            imagePaths,
+            model,
+            options
+          )
       );
   }
 
@@ -1224,16 +1261,20 @@ export class AutoModeService {
         .filter((step) => !excludedStepIds.has(step.id));
 
       if (sortedSteps.length > 0) {
-        // Execute pipeline steps sequentially
-        await this.executePipelineSteps(
+        // Execute pipeline steps sequentially via PipelineOrchestrator
+        await this.pipelineOrchestrator.executePipeline({
           projectPath,
           featureId,
           feature,
-          sortedSteps,
+          steps: sortedSteps,
           workDir,
+          worktreePath,
+          branchName: feature.branchName ?? null,
           abortController,
-          autoLoadClaudeMd
-        );
+          autoLoadClaudeMd,
+          testAttempts: 0,
+          maxTestAttempts: 5,
+        });
       }
 
       // Determine final status based on testing mode:
@@ -1569,20 +1610,24 @@ Complete the pipeline step instructions above. Review the previous work and appl
         `[AutoMode] Resuming feature ${featureId} (${feature.title}) - current status: ${feature.status}`
       );
 
-      // Check if feature is stuck in a pipeline step
-      const pipelineInfo = await this.detectPipelineStatus(
+      // Check if feature is stuck in a pipeline step via PipelineOrchestrator
+      const pipelineInfo = await this.pipelineOrchestrator.detectPipelineStatus(
         projectPath,
         featureId,
         (feature.status || '') as FeatureStatusWithPipeline
       );
 
       if (pipelineInfo.isPipeline) {
-        // Feature stuck in pipeline - use pipeline resume
-        // Pass _alreadyTracked to prevent double-tracking
+        // Feature stuck in pipeline - use pipeline resume via PipelineOrchestrator
         logger.info(
           `[AutoMode] Feature ${featureId} is in pipeline step ${pipelineInfo.stepId}, using pipeline resume`
         );
-        return await this.resumePipelineFeature(projectPath, feature, useWorktrees, pipelineInfo);
+        return await this.pipelineOrchestrator.resumePipeline(
+          projectPath,
+          feature,
+          useWorktrees,
+          pipelineInfo
+        );
       }
 
       // Normal resume flow for non-pipeline features
