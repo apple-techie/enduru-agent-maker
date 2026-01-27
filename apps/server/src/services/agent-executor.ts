@@ -83,7 +83,7 @@ export interface AgentExecutionOptions {
   sdkOptions?: {
     maxTurns?: number;
     allowedTools?: string[];
-    systemPrompt?: string;
+    systemPrompt?: string | { type: 'preset'; preset: 'claude_code'; append?: string };
     settingSources?: Array<'user' | 'project' | 'local'>;
   };
   /** Provider instance to use */

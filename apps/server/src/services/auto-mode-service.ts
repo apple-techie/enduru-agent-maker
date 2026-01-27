@@ -83,14 +83,7 @@ import {
   getPhaseModelWithOverrides,
 } from '../lib/settings-helpers.js';
 import { getNotificationService } from './notification-service.js';
-import {
-  parseTasksFromSpec,
-  detectTaskStartMarker,
-  detectTaskCompleteMarker,
-  detectPhaseCompleteMarker,
-  detectSpecFallback,
-  extractSummary,
-} from './spec-parser.js';
+import { extractSummary } from './spec-parser.js';
 import { AgentExecutor } from './agent-executor.js';
 
 const execAsync = promisify(exec);
