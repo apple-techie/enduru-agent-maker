@@ -1,22 +1,19 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ConcurrencyManager, type RunningFeature } from '@/services/concurrency-manager.js';
-
-// Mock git-utils to control getCurrentBranch behavior
-vi.mock('@automaker/git-utils', () => ({
-  getCurrentBranch: vi.fn(),
-}));
-
-import { getCurrentBranch } from '@automaker/git-utils';
-const mockGetCurrentBranch = vi.mocked(getCurrentBranch);
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import {
+  ConcurrencyManager,
+  type RunningFeature,
+  type GetCurrentBranchFn,
+} from '@/services/concurrency-manager.js';
 
 describe('ConcurrencyManager', () => {
   let manager: ConcurrencyManager;
+  let mockGetCurrentBranch: Mock<GetCurrentBranchFn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    manager = new ConcurrencyManager();
     // Default: primary branch is 'main'
-    mockGetCurrentBranch.mockResolvedValue('main');
+    mockGetCurrentBranch = vi.fn().mockResolvedValue('main');
+    manager = new ConcurrencyManager(mockGetCurrentBranch);
   });
 
   describe('acquire', () => {

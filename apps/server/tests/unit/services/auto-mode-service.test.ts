@@ -69,12 +69,16 @@ describe('auto-mode-service.ts', () => {
   });
 
   describe('getRunningAgents', () => {
-    // Helper to access private runningFeatures Map
-    const getRunningFeaturesMap = (svc: AutoModeService) =>
-      (svc as any).runningFeatures as Map<
-        string,
-        { featureId: string; projectPath: string; isAutoMode: boolean }
-      >;
+    // Helper to access private concurrencyManager
+    const getConcurrencyManager = (svc: AutoModeService) => (svc as any).concurrencyManager;
+
+    // Helper to add a running feature via concurrencyManager
+    const addRunningFeature = (
+      svc: AutoModeService,
+      feature: { featureId: string; projectPath: string; isAutoMode: boolean }
+    ) => {
+      getConcurrencyManager(svc).acquire(feature);
+    };
 
     // Helper to get the featureLoader and mock its get method
     const mockFeatureLoaderGet = (svc: AutoModeService, mockFn: ReturnType<typeof vi.fn>) => {
@@ -88,9 +92,8 @@ describe('auto-mode-service.ts', () => {
     });
 
     it('should return running agents with basic info when feature data is not available', async () => {
-      // Arrange: Add a running feature to the Map
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-123', {
+      // Arrange: Add a running feature via concurrencyManager
+      addRunningFeature(service, {
         featureId: 'feature-123',
         projectPath: '/test/project/path',
         isAutoMode: true,
@@ -117,8 +120,7 @@ describe('auto-mode-service.ts', () => {
 
     it('should return running agents with title and description when feature data is available', async () => {
       // Arrange
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-456', {
+      addRunningFeature(service, {
         featureId: 'feature-456',
         projectPath: '/home/user/my-project',
         isAutoMode: false,
@@ -152,13 +154,12 @@ describe('auto-mode-service.ts', () => {
 
     it('should handle multiple running agents', async () => {
       // Arrange
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-1', {
+      addRunningFeature(service, {
         featureId: 'feature-1',
         projectPath: '/project-a',
         isAutoMode: true,
       });
-      runningFeaturesMap.set('feature-2', {
+      addRunningFeature(service, {
         featureId: 'feature-2',
         projectPath: '/project-b',
         isAutoMode: false,
@@ -188,8 +189,7 @@ describe('auto-mode-service.ts', () => {
 
     it('should silently handle errors when fetching feature data', async () => {
       // Arrange
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-error', {
+      addRunningFeature(service, {
         featureId: 'feature-error',
         projectPath: '/project-error',
         isAutoMode: true,
@@ -215,8 +215,7 @@ describe('auto-mode-service.ts', () => {
 
     it('should handle feature with title but no description', async () => {
       // Arrange
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-title-only', {
+      addRunningFeature(service, {
         featureId: 'feature-title-only',
         projectPath: '/project',
         isAutoMode: false,
@@ -239,8 +238,7 @@ describe('auto-mode-service.ts', () => {
 
     it('should handle feature with description but no title', async () => {
       // Arrange
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-desc-only', {
+      addRunningFeature(service, {
         featureId: 'feature-desc-only',
         projectPath: '/project',
         isAutoMode: false,
@@ -263,8 +261,7 @@ describe('auto-mode-service.ts', () => {
 
     it('should extract projectName from nested paths correctly', async () => {
       // Arrange
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-nested', {
+      addRunningFeature(service, {
         featureId: 'feature-nested',
         projectPath: '/home/user/workspace/projects/my-awesome-project',
         isAutoMode: true,
@@ -282,9 +279,8 @@ describe('auto-mode-service.ts', () => {
 
     it('should fetch feature data in parallel for multiple agents', async () => {
       // Arrange: Add multiple running features
-      const runningFeaturesMap = getRunningFeaturesMap(service);
       for (let i = 1; i <= 5; i++) {
-        runningFeaturesMap.set(`feature-${i}`, {
+        addRunningFeature(service, {
           featureId: `feature-${i}`,
           projectPath: `/project-${i}`,
           isAutoMode: i % 2 === 0,
@@ -581,12 +577,16 @@ describe('auto-mode-service.ts', () => {
   });
 
   describe('markAllRunningFeaturesInterrupted', () => {
-    // Helper to access private runningFeatures Map
-    const getRunningFeaturesMap = (svc: AutoModeService) =>
-      (svc as any).runningFeatures as Map<
-        string,
-        { featureId: string; projectPath: string; isAutoMode: boolean }
-      >;
+    // Helper to access private concurrencyManager
+    const getConcurrencyManager = (svc: AutoModeService) => (svc as any).concurrencyManager;
+
+    // Helper to add a running feature via concurrencyManager
+    const addRunningFeatureForInterrupt = (
+      svc: AutoModeService,
+      feature: { featureId: string; projectPath: string; isAutoMode: boolean }
+    ) => {
+      getConcurrencyManager(svc).acquire(feature);
+    };
 
     // Helper to mock updateFeatureStatus
     const mockUpdateFeatureStatus = (svc: AutoModeService, mockFn: ReturnType<typeof vi.fn>) => {
@@ -608,8 +608,7 @@ describe('auto-mode-service.ts', () => {
     });
 
     it('should mark a single running feature as interrupted', async () => {
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-1', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-1',
         projectPath: '/project/path',
         isAutoMode: true,
@@ -626,18 +625,17 @@ describe('auto-mode-service.ts', () => {
     });
 
     it('should mark multiple running features as interrupted', async () => {
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-1', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-1',
         projectPath: '/project-a',
         isAutoMode: true,
       });
-      runningFeaturesMap.set('feature-2', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-2',
         projectPath: '/project-b',
         isAutoMode: false,
       });
-      runningFeaturesMap.set('feature-3', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-3',
         projectPath: '/project-a',
         isAutoMode: true,
@@ -657,9 +655,8 @@ describe('auto-mode-service.ts', () => {
     });
 
     it('should mark features in parallel', async () => {
-      const runningFeaturesMap = getRunningFeaturesMap(service);
       for (let i = 1; i <= 5; i++) {
-        runningFeaturesMap.set(`feature-${i}`, {
+        addRunningFeatureForInterrupt(service, {
           featureId: `feature-${i}`,
           projectPath: `/project-${i}`,
           isAutoMode: true,
@@ -686,13 +683,12 @@ describe('auto-mode-service.ts', () => {
     });
 
     it('should continue marking other features when one fails', async () => {
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-1', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-1',
         projectPath: '/project-a',
         isAutoMode: true,
       });
-      runningFeaturesMap.set('feature-2', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-2',
         projectPath: '/project-b',
         isAutoMode: false,
@@ -713,8 +709,7 @@ describe('auto-mode-service.ts', () => {
     });
 
     it('should use provided reason in logging', async () => {
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-1', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-1',
         projectPath: '/project/path',
         isAutoMode: true,
@@ -731,8 +726,7 @@ describe('auto-mode-service.ts', () => {
     });
 
     it('should use default reason when none provided', async () => {
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-1', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-1',
         projectPath: '/project/path',
         isAutoMode: true,
@@ -749,18 +743,17 @@ describe('auto-mode-service.ts', () => {
     });
 
     it('should preserve pipeline statuses for running features', async () => {
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-1', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-1',
         projectPath: '/project-a',
         isAutoMode: true,
       });
-      runningFeaturesMap.set('feature-2', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-2',
         projectPath: '/project-b',
         isAutoMode: false,
       });
-      runningFeaturesMap.set('feature-3', {
+      addRunningFeatureForInterrupt(service, {
         featureId: 'feature-3',
         projectPath: '/project-c',
         isAutoMode: true,
@@ -791,20 +784,23 @@ describe('auto-mode-service.ts', () => {
   });
 
   describe('isFeatureRunning', () => {
-    // Helper to access private runningFeatures Map
-    const getRunningFeaturesMap = (svc: AutoModeService) =>
-      (svc as any).runningFeatures as Map<
-        string,
-        { featureId: string; projectPath: string; isAutoMode: boolean }
-      >;
+    // Helper to access private concurrencyManager
+    const getConcurrencyManager = (svc: AutoModeService) => (svc as any).concurrencyManager;
+
+    // Helper to add a running feature via concurrencyManager
+    const addRunningFeatureForIsRunning = (
+      svc: AutoModeService,
+      feature: { featureId: string; projectPath: string; isAutoMode: boolean }
+    ) => {
+      getConcurrencyManager(svc).acquire(feature);
+    };
 
     it('should return false when no features are running', () => {
       expect(service.isFeatureRunning('feature-123')).toBe(false);
     });
 
     it('should return true when the feature is running', () => {
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-123', {
+      addRunningFeatureForIsRunning(service, {
         featureId: 'feature-123',
         projectPath: '/project/path',
         isAutoMode: true,
@@ -814,8 +810,7 @@ describe('auto-mode-service.ts', () => {
     });
 
     it('should return false for non-running feature when others are running', () => {
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-other', {
+      addRunningFeatureForIsRunning(service, {
         featureId: 'feature-other',
         projectPath: '/project/path',
         isAutoMode: true,
@@ -825,13 +820,12 @@ describe('auto-mode-service.ts', () => {
     });
 
     it('should correctly track multiple running features', () => {
-      const runningFeaturesMap = getRunningFeaturesMap(service);
-      runningFeaturesMap.set('feature-1', {
+      addRunningFeatureForIsRunning(service, {
         featureId: 'feature-1',
         projectPath: '/project-a',
         isAutoMode: true,
       });
-      runningFeaturesMap.set('feature-2', {
+      addRunningFeatureForIsRunning(service, {
         featureId: 'feature-2',
         projectPath: '/project-b',
         isAutoMode: false,

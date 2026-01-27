@@ -63,6 +63,11 @@ import {
   validateWorkingDirectory,
 } from '../lib/sdk-options.js';
 import { FeatureLoader } from './feature-loader.js';
+import {
+  ConcurrencyManager,
+  type RunningFeature,
+  type GetCurrentBranchFn,
+} from './concurrency-manager.js';
 import type { SettingsService } from './settings-service.js';
 import { pipelineService, PipelineService } from './pipeline-service.js';
 import {
@@ -341,19 +346,6 @@ interface FeatureWithPlanning extends Feature {
   requirePlanApproval?: boolean;
 }
 
-interface RunningFeature {
-  featureId: string;
-  projectPath: string;
-  worktreePath: string | null;
-  branchName: string | null;
-  abortController: AbortController;
-  isAutoMode: boolean;
-  startTime: number;
-  leaseCount: number;
-  model?: string;
-  provider?: ModelProvider;
-}
-
 interface AutoLoopState {
   projectPath: string;
   maxConcurrency: number;
@@ -429,7 +421,7 @@ const FAILURE_WINDOW_MS = 60000; // Failures within 1 minute count as consecutiv
 
 export class AutoModeService {
   private events: EventEmitter;
-  private runningFeatures = new Map<string, RunningFeature>();
+  private concurrencyManager: ConcurrencyManager;
   private autoLoop: AutoLoopState | null = null;
   private featureLoader = new FeatureLoader();
   // Per-project autoloop state (supports multiple concurrent projects)
@@ -446,15 +438,20 @@ export class AutoModeService {
   // Track if idle event has been emitted (legacy, now per-project in autoLoopsByProject)
   private hasEmittedIdleEvent = false;
 
-  constructor(events: EventEmitter, settingsService?: SettingsService) {
+  constructor(
+    events: EventEmitter,
+    settingsService?: SettingsService,
+    concurrencyManager?: ConcurrencyManager
+  ) {
     this.events = events;
     this.settingsService = settingsService ?? null;
+    // Pass the getCurrentBranch function to ConcurrencyManager for worktree counting
+    this.concurrencyManager = concurrencyManager ?? new ConcurrencyManager(getCurrentBranch);
   }
 
   /**
    * Acquire a slot in the runningFeatures map for a feature.
-   * Implements reference counting via leaseCount to support nested calls
-   * (e.g., resumeFeature -> executeFeature).
+   * Delegates to ConcurrencyManager for lease-based reference counting.
    *
    * @param params.featureId - ID of the feature to track
    * @param params.projectPath - Path to the project
@@ -471,53 +468,18 @@ export class AutoModeService {
     allowReuse?: boolean;
     abortController?: AbortController;
   }): RunningFeature {
-    const existing = this.runningFeatures.get(params.featureId);
-    if (existing) {
-      if (!params.allowReuse) {
-        throw new Error('already running');
-      }
-      existing.leaseCount += 1;
-      return existing;
-    }
-
-    const abortController = params.abortController ?? new AbortController();
-    const entry: RunningFeature = {
-      featureId: params.featureId,
-      projectPath: params.projectPath,
-      worktreePath: null,
-      branchName: null,
-      abortController,
-      isAutoMode: params.isAutoMode,
-      startTime: Date.now(),
-      leaseCount: 1,
-    };
-    this.runningFeatures.set(params.featureId, entry);
-    return entry;
+    return this.concurrencyManager.acquire(params);
   }
 
   /**
    * Release a slot in the runningFeatures map for a feature.
-   * Decrements leaseCount and only removes the entry when it reaches zero,
-   * unless force option is used.
+   * Delegates to ConcurrencyManager for lease-based reference counting.
    *
    * @param featureId - ID of the feature to release
    * @param options.force - If true, immediately removes the entry regardless of leaseCount
    */
   private releaseRunningFeature(featureId: string, options?: { force?: boolean }): void {
-    const entry = this.runningFeatures.get(featureId);
-    if (!entry) {
-      return;
-    }
-
-    if (options?.force) {
-      this.runningFeatures.delete(featureId);
-      return;
-    }
-
-    entry.leaseCount -= 1;
-    if (entry.leaseCount <= 0) {
-      this.runningFeatures.delete(featureId);
-    }
+    this.concurrencyManager.release(featureId, options);
   }
 
   /**
@@ -969,7 +931,7 @@ export class AutoModeService {
 
         // Find a feature not currently running and not yet finished
         const nextFeature = pendingFeatures.find(
-          (f) => !this.runningFeatures.has(f.id) && !this.isFeatureFinished(f)
+          (f) => !this.concurrencyManager.isRunning(f.id) && !this.isFeatureFinished(f)
         );
 
         if (nextFeature) {
@@ -1005,19 +967,15 @@ export class AutoModeService {
 
   /**
    * Get count of running features for a specific project
+   * Delegates to ConcurrencyManager.
    */
   private getRunningCountForProject(projectPath: string): number {
-    let count = 0;
-    for (const [, feature] of this.runningFeatures) {
-      if (feature.projectPath === projectPath) {
-        count++;
-      }
-    }
-    return count;
+    return this.concurrencyManager.getRunningCount(projectPath);
   }
 
   /**
    * Get count of running features for a specific worktree
+   * Delegates to ConcurrencyManager.
    * @param projectPath - The project path
    * @param branchName - The branch name, or null for main worktree (features without branchName or matching primary branch)
    */
@@ -1025,28 +983,7 @@ export class AutoModeService {
     projectPath: string,
     branchName: string | null
   ): Promise<number> {
-    // Get the actual primary branch name for the project
-    const primaryBranch = await getCurrentBranch(projectPath);
-
-    let count = 0;
-    for (const [, feature] of this.runningFeatures) {
-      // Filter by project path AND branchName to get accurate worktree-specific count
-      const featureBranch = feature.branchName ?? null;
-      if (branchName === null) {
-        // Main worktree: match features with branchName === null OR branchName matching primary branch
-        const isPrimaryBranch =
-          featureBranch === null || (primaryBranch && featureBranch === primaryBranch);
-        if (feature.projectPath === projectPath && isPrimaryBranch) {
-          count++;
-        }
-      } else {
-        // Feature worktree: exact match
-        if (feature.projectPath === projectPath && featureBranch === branchName) {
-          count++;
-        }
-      }
-    }
-    return count;
+    return this.concurrencyManager.getRunningCountForWorktree(projectPath, branchName);
   }
 
   /**
@@ -1127,9 +1064,10 @@ export class AutoModeService {
     try {
       await ensureAutomakerDir(projectPath);
       const statePath = getExecutionStatePath(projectPath);
-      const runningFeatureIds = Array.from(this.runningFeatures.entries())
-        .filter(([, f]) => f.projectPath === projectPath)
-        .map(([id]) => id);
+      const runningFeatureIds = this.concurrencyManager
+        .getAllRunning()
+        .filter((f) => f.projectPath === projectPath)
+        .map((f) => f.featureId);
 
       const state: ExecutionState = {
         version: 1,
@@ -1210,7 +1148,8 @@ export class AutoModeService {
     ) {
       try {
         // Check if we have capacity
-        if (this.runningFeatures.size >= (this.config?.maxConcurrency || DEFAULT_MAX_CONCURRENCY)) {
+        const totalRunning = this.concurrencyManager.getAllRunning().length;
+        if (totalRunning >= (this.config?.maxConcurrency || DEFAULT_MAX_CONCURRENCY)) {
           await this.sleep(5000);
           continue;
         }
@@ -1220,7 +1159,7 @@ export class AutoModeService {
 
         if (pendingFeatures.length === 0) {
           // Emit idle event only once when backlog is empty AND no features are running
-          const runningCount = this.runningFeatures.size;
+          const runningCount = this.concurrencyManager.getAllRunning().length;
           if (runningCount === 0 && !this.hasEmittedIdleEvent) {
             this.emitAutoModeEvent('auto_mode_idle', {
               message: 'No pending features - auto mode idle',
@@ -1240,7 +1179,7 @@ export class AutoModeService {
         }
 
         // Find a feature not currently running
-        const nextFeature = pendingFeatures.find((f) => !this.runningFeatures.has(f.id));
+        const nextFeature = pendingFeatures.find((f) => !this.concurrencyManager.isRunning(f.id));
 
         if (nextFeature) {
           // Reset idle event flag since we're doing work again
@@ -1292,7 +1231,7 @@ export class AutoModeService {
       });
     }
 
-    return this.runningFeatures.size;
+    return this.concurrencyManager.getAllRunning().length;
   }
 
   /**
@@ -1841,7 +1780,7 @@ Complete the pipeline step instructions above. Review the previous work and appl
    * Stop a specific feature
    */
   async stopFeature(featureId: string): Promise<boolean> {
-    const running = this.runningFeatures.get(featureId);
+    const running = this.concurrencyManager.getRunningFeature(featureId);
     if (!running) {
       return false;
     }
@@ -2840,10 +2779,11 @@ Format your response as a structured markdown document.`;
     runningFeatures: string[];
     runningCount: number;
   } {
+    const allRunning = this.concurrencyManager.getAllRunning();
     return {
-      isRunning: this.runningFeatures.size > 0,
-      runningFeatures: Array.from(this.runningFeatures.keys()),
-      runningCount: this.runningFeatures.size,
+      isRunning: allRunning.length > 0,
+      runningFeatures: allRunning.map((rf) => rf.featureId),
+      runningCount: allRunning.length,
     };
   }
 
@@ -2864,14 +2804,10 @@ Format your response as a structured markdown document.`;
   } {
     const worktreeKey = getWorktreeAutoLoopKey(projectPath, branchName);
     const projectState = this.autoLoopsByProject.get(worktreeKey);
-    const runningFeatures: string[] = [];
-
-    for (const [featureId, feature] of this.runningFeatures) {
-      // Filter by project path AND branchName to get worktree-specific features
-      if (feature.projectPath === projectPath && feature.branchName === branchName) {
-        runningFeatures.push(featureId);
-      }
-    }
+    const runningFeatures = this.concurrencyManager
+      .getAllRunning()
+      .filter((f) => f.projectPath === projectPath && f.branchName === branchName)
+      .map((f) => f.featureId);
 
     return {
       isAutoLoopRunning: projectState?.isRunning ?? false,
@@ -2929,7 +2865,7 @@ Format your response as a structured markdown document.`;
     }>
   > {
     const agents = await Promise.all(
-      Array.from(this.runningFeatures.values()).map(async (rf) => {
+      this.concurrencyManager.getAllRunning().map(async (rf) => {
         // Try to fetch feature data to get title, description, and branchName
         let title: string | undefined;
         let description: string | undefined;
@@ -3350,7 +3286,8 @@ Format your response as a structured markdown document.`;
    * @returns Promise that resolves when all features have been marked as interrupted
    */
   async markAllRunningFeaturesInterrupted(reason?: string): Promise<void> {
-    const runningCount = this.runningFeatures.size;
+    const allRunning = this.concurrencyManager.getAllRunning();
+    const runningCount = allRunning.length;
 
     if (runningCount === 0) {
       logger.info('No running features to mark as interrupted');
@@ -3362,13 +3299,15 @@ Format your response as a structured markdown document.`;
 
     const markPromises: Promise<void>[] = [];
 
-    for (const [featureId, runningFeature] of this.runningFeatures) {
+    for (const runningFeature of allRunning) {
       markPromises.push(
-        this.markFeatureInterrupted(runningFeature.projectPath, featureId, logReason).catch(
-          (error) => {
-            logger.error(`Failed to mark feature ${featureId} as interrupted:`, error);
-          }
-        )
+        this.markFeatureInterrupted(
+          runningFeature.projectPath,
+          runningFeature.featureId,
+          logReason
+        ).catch((error) => {
+          logger.error(`Failed to mark feature ${runningFeature.featureId} as interrupted:`, error);
+        })
       );
     }
 
@@ -3401,7 +3340,7 @@ Format your response as a structured markdown document.`;
    * @returns true if the feature is currently running, false otherwise
    */
   isFeatureRunning(featureId: string): boolean {
-    return this.runningFeatures.has(featureId);
+    return this.concurrencyManager.isRunning(featureId);
   }
 
   /**
@@ -5344,13 +5283,14 @@ This mock response was generated because AUTOMAKER_MOCK_AGENT=true was set.
     try {
       await ensureAutomakerDir(projectPath);
       const statePath = getExecutionStatePath(projectPath);
+      const runningFeatureIds = this.concurrencyManager.getAllRunning().map((rf) => rf.featureId);
       const state: ExecutionState = {
         version: 1,
         autoLoopWasRunning: this.autoLoopRunning,
         maxConcurrency: this.config?.maxConcurrency ?? DEFAULT_MAX_CONCURRENCY,
         projectPath,
         branchName: null, // Legacy global auto mode uses main worktree
-        runningFeatureIds: Array.from(this.runningFeatures.keys()),
+        runningFeatureIds,
         savedAt: new Date().toISOString(),
       };
       await secureFs.writeFile(statePath, JSON.stringify(state, null, 2), 'utf-8');

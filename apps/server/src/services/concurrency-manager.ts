@@ -13,7 +13,12 @@
  */
 
 import type { ModelProvider } from '@automaker/types';
-import { getCurrentBranch } from '@automaker/git-utils';
+
+/**
+ * Function type for getting the current branch of a project.
+ * Injected to allow for testing and decoupling from git operations.
+ */
+export type GetCurrentBranchFn = (projectPath: string) => Promise<string | null>;
 
 /**
  * Represents a running feature execution with all tracking metadata
@@ -50,6 +55,15 @@ export interface AcquireParams {
  */
 export class ConcurrencyManager {
   private runningFeatures = new Map<string, RunningFeature>();
+  private getCurrentBranch: GetCurrentBranchFn;
+
+  /**
+   * @param getCurrentBranch - Function to get the current branch for a project.
+   *                           If not provided, defaults to returning 'main'.
+   */
+  constructor(getCurrentBranch?: GetCurrentBranchFn) {
+    this.getCurrentBranch = getCurrentBranch ?? (() => Promise.resolve('main'));
+  }
 
   /**
    * Acquire a slot in the runningFeatures map for a feature.
@@ -163,7 +177,7 @@ export class ConcurrencyManager {
     branchName: string | null
   ): Promise<number> {
     // Get the actual primary branch name for the project
-    const primaryBranch = await getCurrentBranch(projectPath);
+    const primaryBranch = await this.getCurrentBranch(projectPath);
 
     let count = 0;
     for (const [, feature] of this.runningFeatures) {
