@@ -4,12 +4,16 @@
 
 import type { Request, Response } from 'express';
 import type { AutoModeService } from '../../../services/auto-mode-service.js';
+import type { AutoModeServiceFacade } from '../../../services/auto-mode/index.js';
 import { createLogger } from '@automaker/utils';
 import { getErrorMessage, logError } from '../common.js';
 
 const logger = createLogger('AutoMode');
 
-export function createApprovePlanHandler(autoModeService: AutoModeService) {
+export function createApprovePlanHandler(
+  autoModeService: AutoModeService,
+  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
+) {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const { featureId, approved, editedPlan, feedback, projectPath } = req.body as {
@@ -46,6 +50,30 @@ export function createApprovePlanHandler(autoModeService: AutoModeService) {
         }${feedback ? ` - Feedback: ${feedback}` : ''}`
       );
 
+      // Use facade if factory is provided and projectPath is available
+      if (facadeFactory && projectPath) {
+        const facade = facadeFactory(projectPath);
+        const result = await facade.resolvePlanApproval(featureId, approved, editedPlan, feedback);
+
+        if (!result.success) {
+          res.status(500).json({
+            success: false,
+            error: result.error,
+          });
+          return;
+        }
+
+        res.json({
+          success: true,
+          approved,
+          message: approved
+            ? 'Plan approved - implementation will continue'
+            : 'Plan rejected - feature execution stopped',
+        });
+        return;
+      }
+
+      // Legacy path: use autoModeService directly
       // Resolve the pending approval (with recovery support)
       const result = await autoModeService.resolvePlanApproval(
         featureId,
