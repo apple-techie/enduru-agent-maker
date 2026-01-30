@@ -6,6 +6,7 @@ import { Router } from 'express';
 import { FeatureLoader } from '../../services/feature-loader.js';
 import type { SettingsService } from '../../services/settings-service.js';
 import type { AutoModeService } from '../../services/auto-mode-service.js';
+import type { AutoModeServiceFacade } from '../../services/auto-mode/index.js';
 import type { EventEmitter } from '../../lib/events.js';
 import { validatePathParams } from '../../middleware/validate-paths.js';
 import { createListHandler } from './routes/list.js';
@@ -24,14 +25,15 @@ export function createFeaturesRoutes(
   featureLoader: FeatureLoader,
   settingsService?: SettingsService,
   events?: EventEmitter,
-  autoModeService?: AutoModeService
+  autoModeService?: AutoModeService,
+  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
 ): Router {
   const router = Router();
 
   router.post(
     '/list',
     validatePathParams('projectPath'),
-    createListHandler(featureLoader, autoModeService)
+    createListHandler(featureLoader, autoModeService, facadeFactory)
   );
   router.post('/get', validatePathParams('projectPath'), createGetHandler(featureLoader));
   router.post(

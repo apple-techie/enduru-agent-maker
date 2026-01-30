@@ -1,11 +1,13 @@
 /**
  * Auto Mode routes - HTTP API for autonomous feature implementation
  *
- * Uses the AutoModeService for real feature execution with Claude Agent SDK
+ * Uses the AutoModeService for real feature execution with Claude Agent SDK.
+ * Supports optional facadeFactory for per-project facade creation during migration.
  */
 
 import { Router } from 'express';
 import type { AutoModeService } from '../../services/auto-mode-service.js';
+import type { AutoModeServiceFacade } from '../../services/auto-mode/index.js';
 import { validatePathParams } from '../../middleware/validate-paths.js';
 import { createStopFeatureHandler } from './routes/stop-feature.js';
 import { createStatusHandler } from './routes/status.js';
@@ -21,59 +23,82 @@ import { createCommitFeatureHandler } from './routes/commit-feature.js';
 import { createApprovePlanHandler } from './routes/approve-plan.js';
 import { createResumeInterruptedHandler } from './routes/resume-interrupted.js';
 
-export function createAutoModeRoutes(autoModeService: AutoModeService): Router {
+/**
+ * Create auto-mode routes with optional facade factory.
+ *
+ * @param autoModeService - The AutoModeService instance (for backward compatibility)
+ * @param facadeFactory - Optional factory for creating per-project facades
+ */
+export function createAutoModeRoutes(
+  autoModeService: AutoModeService,
+  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
+): Router {
   const router = Router();
 
   // Auto loop control routes
-  router.post('/start', validatePathParams('projectPath'), createStartHandler(autoModeService));
-  router.post('/stop', validatePathParams('projectPath'), createStopHandler(autoModeService));
+  router.post(
+    '/start',
+    validatePathParams('projectPath'),
+    createStartHandler(autoModeService, facadeFactory)
+  );
+  router.post(
+    '/stop',
+    validatePathParams('projectPath'),
+    createStopHandler(autoModeService, facadeFactory)
+  );
 
+  // Note: stop-feature doesn't have projectPath, so we pass undefined for facade.
+  // When we fully migrate, we can update stop-feature to use a different approach.
   router.post('/stop-feature', createStopFeatureHandler(autoModeService));
-  router.post('/status', validatePathParams('projectPath?'), createStatusHandler(autoModeService));
+  router.post(
+    '/status',
+    validatePathParams('projectPath?'),
+    createStatusHandler(autoModeService, facadeFactory)
+  );
   router.post(
     '/run-feature',
     validatePathParams('projectPath'),
-    createRunFeatureHandler(autoModeService)
+    createRunFeatureHandler(autoModeService, facadeFactory)
   );
   router.post(
     '/verify-feature',
     validatePathParams('projectPath'),
-    createVerifyFeatureHandler(autoModeService)
+    createVerifyFeatureHandler(autoModeService, facadeFactory)
   );
   router.post(
     '/resume-feature',
     validatePathParams('projectPath'),
-    createResumeFeatureHandler(autoModeService)
+    createResumeFeatureHandler(autoModeService, facadeFactory)
   );
   router.post(
     '/context-exists',
     validatePathParams('projectPath'),
-    createContextExistsHandler(autoModeService)
+    createContextExistsHandler(autoModeService, facadeFactory)
   );
   router.post(
     '/analyze-project',
     validatePathParams('projectPath'),
-    createAnalyzeProjectHandler(autoModeService)
+    createAnalyzeProjectHandler(autoModeService, facadeFactory)
   );
   router.post(
     '/follow-up-feature',
     validatePathParams('projectPath', 'imagePaths[]'),
-    createFollowUpFeatureHandler(autoModeService)
+    createFollowUpFeatureHandler(autoModeService, facadeFactory)
   );
   router.post(
     '/commit-feature',
     validatePathParams('projectPath', 'worktreePath?'),
-    createCommitFeatureHandler(autoModeService)
+    createCommitFeatureHandler(autoModeService, facadeFactory)
   );
   router.post(
     '/approve-plan',
     validatePathParams('projectPath'),
-    createApprovePlanHandler(autoModeService)
+    createApprovePlanHandler(autoModeService, facadeFactory)
   );
   router.post(
     '/resume-interrupted',
     validatePathParams('projectPath'),
-    createResumeInterruptedHandler(autoModeService)
+    createResumeInterruptedHandler(autoModeService, facadeFactory)
   );
 
   return router;
