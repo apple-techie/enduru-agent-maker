@@ -4,12 +4,20 @@
 
 import type { Request, Response } from 'express';
 import type { AutoModeService } from '../../../services/auto-mode-service.js';
+import type { AutoModeServiceFacade } from '../../../services/auto-mode/index.js';
 import { createLogger } from '@automaker/utils';
 import { getErrorMessage, logError } from '../common.js';
 
 const logger = createLogger('AutoMode');
 
-export function createStopHandler(autoModeService: AutoModeService) {
+/**
+ * Create stop handler with transition compatibility.
+ * Accepts either autoModeService (legacy) or facadeFactory (new).
+ */
+export function createStopHandler(
+  autoModeService: AutoModeService,
+  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
+) {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const { projectPath, branchName } = req.body as {
@@ -31,6 +39,38 @@ export function createStopHandler(autoModeService: AutoModeService) {
         ? `worktree ${normalizedBranchName}`
         : 'main worktree';
 
+      // Use facade if factory is provided, otherwise fall back to autoModeService
+      if (facadeFactory) {
+        const facade = facadeFactory(projectPath);
+
+        // Check if running
+        if (!facade.isAutoLoopRunning(normalizedBranchName)) {
+          res.json({
+            success: true,
+            message: `Auto mode is not running for ${worktreeDesc}`,
+            wasRunning: false,
+            branchName: normalizedBranchName,
+          });
+          return;
+        }
+
+        // Stop the auto loop for this project/worktree
+        const runningCount = await facade.stopAutoLoop(normalizedBranchName);
+
+        logger.info(
+          `Stopped auto loop for ${worktreeDesc} in project: ${projectPath}, ${runningCount} features still running`
+        );
+
+        res.json({
+          success: true,
+          message: 'Auto mode stopped',
+          runningFeaturesCount: runningCount,
+          branchName: normalizedBranchName,
+        });
+        return;
+      }
+
+      // Legacy path: use autoModeService directly
       // Check if running
       if (!autoModeService.isAutoLoopRunningForProject(projectPath, normalizedBranchName)) {
         res.json({
