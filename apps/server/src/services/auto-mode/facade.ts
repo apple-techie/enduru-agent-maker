@@ -86,12 +86,20 @@ export class AutoModeServiceFacade {
    * @param options - Configuration options including events, settingsService, featureLoader
    */
   static create(projectPath: string, options: FacadeOptions): AutoModeServiceFacade {
-    const { events, settingsService = null, featureLoader = new FeatureLoader() } = options;
+    const {
+      events,
+      settingsService = null,
+      featureLoader = new FeatureLoader(),
+      sharedServices,
+    } = options;
 
-    // Create core services
-    const eventBus = new TypedEventBus(events);
-    const worktreeResolver = new WorktreeResolver();
-    const concurrencyManager = new ConcurrencyManager((p) => worktreeResolver.getCurrentBranch(p));
+    // Use shared services if provided, otherwise create new ones
+    // Shared services allow multiple facades to share state (e.g., running features, auto loops)
+    const eventBus = sharedServices?.eventBus ?? new TypedEventBus(events);
+    const worktreeResolver = sharedServices?.worktreeResolver ?? new WorktreeResolver();
+    const concurrencyManager =
+      sharedServices?.concurrencyManager ??
+      new ConcurrencyManager((p) => worktreeResolver.getCurrentBranch(p));
     const featureStateManager = new FeatureStateManager(events, featureLoader);
     const planApprovalService = new PlanApprovalService(
       eventBus,
@@ -151,36 +159,39 @@ export class AutoModeServiceFacade {
       }
     );
 
-    // AutoLoopCoordinator
-    const autoLoopCoordinator = new AutoLoopCoordinator(
-      eventBus,
-      concurrencyManager,
-      settingsService,
-      // Callbacks
-      (pPath, featureId, useWorktrees, isAutoMode) =>
-        facadeInstance!.executeFeature(featureId, useWorktrees, isAutoMode),
-      (pPath, branchName) =>
-        featureLoader
-          .getAll(pPath)
-          .then((features) =>
-            features.filter(
-              (f) =>
-                (f.status === 'backlog' || f.status === 'ready') &&
-                (branchName === null
-                  ? !f.branchName || f.branchName === 'main'
-                  : f.branchName === branchName)
-            )
-          ),
-      (pPath, branchName, maxConcurrency) =>
-        facadeInstance!.saveExecutionStateForProject(branchName, maxConcurrency),
-      (pPath, branchName) => facadeInstance!.clearExecutionState(branchName),
-      (pPath) => featureStateManager.resetStuckFeatures(pPath),
-      (feature) =>
-        feature.status === 'completed' ||
-        feature.status === 'verified' ||
-        feature.status === 'waiting_approval',
-      (featureId) => concurrencyManager.isRunning(featureId)
-    );
+    // AutoLoopCoordinator - use shared if provided, otherwise create new
+    // Note: When using shared autoLoopCoordinator, callbacks are already set up by the global service
+    const autoLoopCoordinator =
+      sharedServices?.autoLoopCoordinator ??
+      new AutoLoopCoordinator(
+        eventBus,
+        concurrencyManager,
+        settingsService,
+        // Callbacks
+        (pPath, featureId, useWorktrees, isAutoMode) =>
+          facadeInstance!.executeFeature(featureId, useWorktrees, isAutoMode),
+        (pPath, branchName) =>
+          featureLoader
+            .getAll(pPath)
+            .then((features) =>
+              features.filter(
+                (f) =>
+                  (f.status === 'backlog' || f.status === 'ready') &&
+                  (branchName === null
+                    ? !f.branchName || f.branchName === 'main'
+                    : f.branchName === branchName)
+              )
+            ),
+        (pPath, branchName, maxConcurrency) =>
+          facadeInstance!.saveExecutionStateForProject(branchName, maxConcurrency),
+        (pPath, branchName) => facadeInstance!.clearExecutionState(branchName),
+        (pPath) => featureStateManager.resetStuckFeatures(pPath),
+        (feature) =>
+          feature.status === 'completed' ||
+          feature.status === 'verified' ||
+          feature.status === 'waiting_approval',
+        (featureId) => concurrencyManager.isRunning(featureId)
+      );
 
     // ExecutionService - runAgentFn is a stub
     const executionService = new ExecutionService(

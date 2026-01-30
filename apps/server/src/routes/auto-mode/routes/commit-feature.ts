@@ -3,18 +3,10 @@
  */
 
 import type { Request, Response } from 'express';
-import type { AutoModeService } from '../../../services/auto-mode-service.js';
-import type { AutoModeServiceFacade } from '../../../services/auto-mode/index.js';
+import type { AutoModeServiceCompat } from '../../../services/auto-mode/index.js';
 import { getErrorMessage, logError } from '../common.js';
 
-/**
- * Create commit feature handler with transition compatibility.
- * Accepts either autoModeService (legacy) or facadeFactory (new).
- */
-export function createCommitFeatureHandler(
-  autoModeService: AutoModeService,
-  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
-) {
+export function createCommitFeatureHandler(autoModeService: AutoModeServiceCompat) {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const { projectPath, featureId, worktreePath } = req.body as {
@@ -31,15 +23,6 @@ export function createCommitFeatureHandler(
         return;
       }
 
-      // Use facade if factory is provided, otherwise fall back to autoModeService
-      if (facadeFactory) {
-        const facade = facadeFactory(projectPath);
-        const commitHash = await facade.commitFeature(featureId, worktreePath);
-        res.json({ success: true, commitHash });
-        return;
-      }
-
-      // Legacy path: use autoModeService directly
       const commitHash = await autoModeService.commitFeature(projectPath, featureId, worktreePath);
       res.json({ success: true, commitHash });
     } catch (error) {

@@ -11,6 +11,10 @@ import type { EventEmitter } from '../../lib/events.js';
 import type { Feature, ModelProvider } from '@automaker/types';
 import type { SettingsService } from '../settings-service.js';
 import type { FeatureLoader } from '../feature-loader.js';
+import type { ConcurrencyManager } from '../concurrency-manager.js';
+import type { AutoLoopCoordinator } from '../auto-loop-coordinator.js';
+import type { WorktreeResolver } from '../worktree-resolver.js';
+import type { TypedEventBus } from '../typed-event-bus.js';
 
 // Re-export types from extracted services for route consumption
 export type { AutoModeConfig, ProjectAutoLoopState } from '../auto-loop-coordinator.js';
@@ -26,6 +30,20 @@ export type { PlanApprovalResult, ResolveApprovalResult } from '../plan-approval
 export type { ExecutionState } from '../recovery-service.js';
 
 /**
+ * Shared services that can be passed to facades to enable state sharing
+ */
+export interface SharedServices {
+  /** TypedEventBus for typed event emission */
+  eventBus: TypedEventBus;
+  /** ConcurrencyManager for tracking running features across all projects */
+  concurrencyManager: ConcurrencyManager;
+  /** AutoLoopCoordinator for managing auto loop state across all projects */
+  autoLoopCoordinator: AutoLoopCoordinator;
+  /** WorktreeResolver for git worktree operations */
+  worktreeResolver: WorktreeResolver;
+}
+
+/**
  * Options for creating an AutoModeServiceFacade instance
  */
 export interface FacadeOptions {
@@ -35,6 +53,8 @@ export interface FacadeOptions {
   settingsService?: SettingsService | null;
   /** FeatureLoader for loading feature data (optional, defaults to new FeatureLoader()) */
   featureLoader?: FeatureLoader;
+  /** Shared services for state sharing across facades (optional) */
+  sharedServices?: SharedServices;
 }
 
 /**
@@ -88,4 +108,21 @@ export interface RunningAgentInfo {
 export interface OrphanedFeatureInfo {
   feature: Feature;
   missingBranch: string;
+}
+
+/**
+ * Interface describing global auto-mode operations (not project-specific).
+ * Used by routes that need global state access.
+ */
+export interface GlobalAutoModeOperations {
+  /** Get global status (all projects combined) */
+  getStatus(): AutoModeStatus;
+  /** Get all active auto loop projects (unique project paths) */
+  getActiveAutoLoopProjects(): string[];
+  /** Get all active auto loop worktrees */
+  getActiveAutoLoopWorktrees(): Array<{ projectPath: string; branchName: string | null }>;
+  /** Get detailed info about all running agents */
+  getRunningAgents(): Promise<RunningAgentInfo[]>;
+  /** Mark all running features as interrupted (for graceful shutdown) */
+  markAllRunningFeaturesInterrupted(reason?: string): Promise<void>;
 }

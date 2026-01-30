@@ -6,19 +6,13 @@
  */
 
 import type { Request, Response } from 'express';
-import type { AutoModeService } from '../../../services/auto-mode-service.js';
-import type { AutoModeServiceFacade } from '../../../services/auto-mode/index.js';
+import type { AutoModeServiceCompat } from '../../../services/auto-mode/index.js';
 import { getErrorMessage, logError } from '../common.js';
 
 /**
- * Create status handler with transition compatibility.
- * Accepts either autoModeService (legacy) or facade (new).
- * When facade is provided, creates a per-project facade for the request.
+ * Create status handler.
  */
-export function createStatusHandler(
-  autoModeService: AutoModeService,
-  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
-) {
+export function createStatusHandler(autoModeService: AutoModeServiceCompat) {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const { projectPath, branchName } = req.body as {
@@ -31,24 +25,6 @@ export function createStatusHandler(
         // Normalize branchName: undefined becomes null
         const normalizedBranchName = branchName ?? null;
 
-        // Use facade if factory is provided, otherwise fall back to autoModeService
-        if (facadeFactory) {
-          const facade = facadeFactory(projectPath);
-          const projectStatus = facade.getStatusForProject(normalizedBranchName);
-          res.json({
-            success: true,
-            isRunning: projectStatus.runningCount > 0,
-            isAutoLoopRunning: projectStatus.isAutoLoopRunning,
-            runningFeatures: projectStatus.runningFeatures,
-            runningCount: projectStatus.runningCount,
-            maxConcurrency: projectStatus.maxConcurrency,
-            projectPath,
-            branchName: normalizedBranchName,
-          });
-          return;
-        }
-
-        // Legacy path: use autoModeService directly
         const projectStatus = autoModeService.getStatusForProject(
           projectPath,
           normalizedBranchName
@@ -66,8 +42,7 @@ export function createStatusHandler(
         return;
       }
 
-      // Fall back to global status for backward compatibility
-      // Global status uses autoModeService (facade is per-project)
+      // Global status for backward compatibility
       const status = autoModeService.getStatus();
       const activeProjects = autoModeService.getActiveAutoLoopProjects();
       const activeWorktrees = autoModeService.getActiveAutoLoopWorktrees();

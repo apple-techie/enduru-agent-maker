@@ -2,13 +2,16 @@
  * Auto Mode Service Module
  *
  * Entry point for auto-mode functionality. Exports:
- * - AutoModeServiceFacade: Clean facade for auto-mode operations
+ * - GlobalAutoModeService: Global operations that span all projects
+ * - AutoModeServiceFacade: Per-project facade for auto-mode operations
  * - createAutoModeFacade: Convenience factory function
  * - Types for route consumption
  */
 
-// Main facade export
+// Main exports
+export { GlobalAutoModeService } from './global-service.js';
 export { AutoModeServiceFacade } from './facade.js';
+export { AutoModeServiceCompat } from './compat.js';
 
 // Convenience factory function
 import { AutoModeServiceFacade } from './facade.js';
@@ -49,11 +52,13 @@ export function createAutoModeFacade(
 // Type exports from types.ts
 export type {
   FacadeOptions,
+  SharedServices,
   AutoModeStatus,
   ProjectAutoModeStatus,
   WorktreeCapacityInfo,
   RunningAgentInfo,
   OrphanedFeatureInfo,
+  GlobalAutoModeOperations,
 } from './types.js';
 
 // Re-export types from extracted services for route convenience

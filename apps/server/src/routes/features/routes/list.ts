@@ -7,8 +7,7 @@
 
 import type { Request, Response } from 'express';
 import { FeatureLoader } from '../../../services/feature-loader.js';
-import type { AutoModeService } from '../../../services/auto-mode-service.js';
-import type { AutoModeServiceFacade } from '../../../services/auto-mode/index.js';
+import type { AutoModeServiceCompat } from '../../../services/auto-mode/index.js';
 import { getErrorMessage, logError } from '../common.js';
 import { createLogger } from '@automaker/utils';
 
@@ -16,8 +15,7 @@ const logger = createLogger('FeaturesListRoute');
 
 export function createListHandler(
   featureLoader: FeatureLoader,
-  autoModeService?: AutoModeService,
-  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
+  autoModeService?: AutoModeServiceCompat
 ) {
   return async (req: Request, res: Response): Promise<void> => {
     try {
@@ -34,21 +32,7 @@ export function createListHandler(
       // This detects features whose branches no longer exist (e.g., after merge/delete)
       // We don't await this to keep the list response fast
       // Note: detectOrphanedFeatures handles errors internally and always resolves
-      if (facadeFactory) {
-        const facade = facadeFactory(projectPath);
-        facade.detectOrphanedFeatures().then((orphanedFeatures) => {
-          if (orphanedFeatures.length > 0) {
-            logger.info(
-              `[ProjectLoad] Detected ${orphanedFeatures.length} orphaned feature(s) in ${projectPath}`
-            );
-            for (const { feature, missingBranch } of orphanedFeatures) {
-              logger.info(
-                `[ProjectLoad] Orphaned: ${feature.title || feature.id} - branch "${missingBranch}" no longer exists`
-              );
-            }
-          }
-        });
-      } else if (autoModeService) {
+      if (autoModeService) {
         autoModeService.detectOrphanedFeatures(projectPath).then((orphanedFeatures) => {
           if (orphanedFeatures.length > 0) {
             logger.info(

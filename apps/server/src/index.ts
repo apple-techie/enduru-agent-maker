@@ -56,7 +56,7 @@ import {
 import { createSettingsRoutes } from './routes/settings/index.js';
 import { AgentService } from './services/agent-service.js';
 import { FeatureLoader } from './services/feature-loader.js';
-import { AutoModeService } from './services/auto-mode-service.js';
+import { AutoModeServiceCompat } from './services/auto-mode/index.js';
 import { getTerminalService } from './services/terminal-service.js';
 import { SettingsService } from './services/settings-service.js';
 import { createSpecRegenerationRoutes } from './routes/app-spec/index.js';
@@ -258,7 +258,9 @@ const events: EventEmitter = createEventEmitter();
 const settingsService = new SettingsService(DATA_DIR);
 const agentService = new AgentService(DATA_DIR, events, settingsService);
 const featureLoader = new FeatureLoader();
-const autoModeService = new AutoModeService(events, settingsService);
+
+// Auto-mode services: compatibility layer provides old interface while using new architecture
+const autoModeService = new AutoModeServiceCompat(events, settingsService, featureLoader);
 const claudeUsageService = new ClaudeUsageService();
 const codexAppServerService = new CodexAppServerService();
 const codexModelCacheService = new CodexModelCacheService(DATA_DIR, codexAppServerService);

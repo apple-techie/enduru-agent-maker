@@ -9,9 +9,8 @@
 
 import type { Request, Response } from 'express';
 import type { FeatureLoader } from '../../../services/feature-loader.js';
-import type { AutoModeService } from '../../../services/auto-mode-service.js';
 import type {
-  AutoModeServiceFacade,
+  AutoModeServiceCompat,
   RunningAgentInfo,
   ProjectAutoModeStatus,
 } from '../../../services/auto-mode/index.js';
@@ -152,10 +151,9 @@ function getLastActivityAt(features: Feature[]): string | undefined {
 
 export function createOverviewHandler(
   featureLoader: FeatureLoader,
-  autoModeService: AutoModeService,
+  autoModeService: AutoModeServiceCompat,
   settingsService: SettingsService,
-  notificationService: NotificationService,
-  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
+  notificationService: NotificationService
 ) {
   return async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -164,15 +162,7 @@ export function createOverviewHandler(
       const projectRefs: ProjectRef[] = settings.projects || [];
 
       // Get all running agents once to count live running features per project
-      // Use facade if available, otherwise fall back to autoModeService
-      let allRunningAgents: RunningAgentInfo[];
-      if (facadeFactory && projectRefs.length > 0) {
-        // For running agents, we can use any project's facade since it's a global query
-        const facade = facadeFactory(projectRefs[0].path);
-        allRunningAgents = await facade.getRunningAgents();
-      } else {
-        allRunningAgents = await autoModeService.getRunningAgents();
-      }
+      const allRunningAgents: RunningAgentInfo[] = await autoModeService.getRunningAgents();
 
       // Collect project statuses in parallel
       const projectStatusPromises = projectRefs.map(async (projectRef): Promise<ProjectStatus> => {
@@ -183,13 +173,10 @@ export function createOverviewHandler(
           const totalFeatures = features.length;
 
           // Get auto-mode status for this project (main worktree, branchName = null)
-          let autoModeStatus: ProjectAutoModeStatus;
-          if (facadeFactory) {
-            const facade = facadeFactory(projectRef.path);
-            autoModeStatus = facade.getStatusForProject(null);
-          } else {
-            autoModeStatus = autoModeService.getStatusForProject(projectRef.path, null);
-          }
+          const autoModeStatus: ProjectAutoModeStatus = autoModeService.getStatusForProject(
+            projectRef.path,
+            null
+          );
           const isAutoModeRunning = autoModeStatus.isAutoLoopRunning;
 
           // Count live running features for this project (across all branches)

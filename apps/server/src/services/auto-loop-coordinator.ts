@@ -364,6 +364,36 @@ export class AutoLoopCoordinator {
   }
 
   /**
+   * Get all active auto loop worktrees with their project paths and branch names
+   */
+  getActiveWorktrees(): Array<{ projectPath: string; branchName: string | null }> {
+    const activeWorktrees: Array<{ projectPath: string; branchName: string | null }> = [];
+    for (const [, state] of this.autoLoopsByProject) {
+      if (state.isRunning) {
+        activeWorktrees.push({
+          projectPath: state.config.projectPath,
+          branchName: state.branchName,
+        });
+      }
+    }
+    return activeWorktrees;
+  }
+
+  /**
+   * Get all projects that have auto mode running (returns unique project paths)
+   * @deprecated Use getActiveWorktrees instead for full worktree information
+   */
+  getActiveProjects(): string[] {
+    const activeProjects = new Set<string>();
+    for (const [, state] of this.autoLoopsByProject) {
+      if (state.isRunning) {
+        activeProjects.add(state.config.projectPath);
+      }
+    }
+    return Array.from(activeProjects);
+  }
+
+  /**
    * Get count of running features for a specific worktree
    * Delegates to ConcurrencyManager.
    * @param projectPath - The project path

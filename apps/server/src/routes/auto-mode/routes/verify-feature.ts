@@ -3,18 +3,10 @@
  */
 
 import type { Request, Response } from 'express';
-import type { AutoModeService } from '../../../services/auto-mode-service.js';
-import type { AutoModeServiceFacade } from '../../../services/auto-mode/index.js';
+import type { AutoModeServiceCompat } from '../../../services/auto-mode/index.js';
 import { getErrorMessage, logError } from '../common.js';
 
-/**
- * Create verify feature handler with transition compatibility.
- * Accepts either autoModeService (legacy) or facadeFactory (new).
- */
-export function createVerifyFeatureHandler(
-  autoModeService: AutoModeService,
-  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
-) {
+export function createVerifyFeatureHandler(autoModeService: AutoModeServiceCompat) {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const { projectPath, featureId } = req.body as {
@@ -30,15 +22,6 @@ export function createVerifyFeatureHandler(
         return;
       }
 
-      // Use facade if factory is provided, otherwise fall back to autoModeService
-      if (facadeFactory) {
-        const facade = facadeFactory(projectPath);
-        const passes = await facade.verifyFeature(featureId);
-        res.json({ success: true, passes });
-        return;
-      }
-
-      // Legacy path: use autoModeService directly
       const passes = await autoModeService.verifyFeature(projectPath, featureId);
       res.json({ success: true, passes });
     } catch (error) {

@@ -3,29 +3,16 @@
  */
 
 import type { Request, Response } from 'express';
-import type { AutoModeService } from '../../../services/auto-mode-service.js';
-import type { AutoModeServiceFacade } from '../../../services/auto-mode/index.js';
+import type { AutoModeServiceCompat } from '../../../services/auto-mode/index.js';
 import { getBacklogPlanStatus, getRunningDetails } from '../../backlog-plan/common.js';
 import { getAllRunningGenerations } from '../../app-spec/common.js';
 import path from 'path';
 import { getErrorMessage, logError } from '../common.js';
 
-/**
- * Create index handler with transition compatibility.
- * Accepts either autoModeService (legacy) or facade (new).
- * Note: getRunningAgents is global (not per-project), so facade is created
- * with an empty path for global queries.
- */
-export function createIndexHandler(
-  autoModeService: AutoModeService,
-  facade?: AutoModeServiceFacade
-) {
+export function createIndexHandler(autoModeService: AutoModeServiceCompat) {
   return async (_req: Request, res: Response): Promise<void> => {
     try {
-      // Use facade if provided, otherwise fall back to autoModeService
-      const runningAgents = facade
-        ? [...(await facade.getRunningAgents())]
-        : [...(await autoModeService.getRunningAgents())];
+      const runningAgents = [...(await autoModeService.getRunningAgents())];
 
       const backlogPlanStatus = getBacklogPlanStatus();
       const backlogPlanDetails = getRunningDetails();
