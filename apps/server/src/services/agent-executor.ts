@@ -3,15 +3,7 @@
  */
 
 import path from 'path';
-import type {
-  ExecuteOptions,
-  PlanningMode,
-  ThinkingLevel,
-  ParsedTask,
-  ClaudeCompatibleProvider,
-  Credentials,
-} from '@automaker/types';
-import type { BaseProvider } from '../providers/base-provider.js';
+import type { ExecuteOptions, ParsedTask } from '@automaker/types';
 import { buildPromptWithImages, createLogger } from '@automaker/utils';
 import { getFeatureDir } from '@automaker/platform';
 import * as secureFs from '../lib/secure-fs.js';
@@ -28,69 +20,23 @@ import {
   extractSummary,
 } from './spec-parser.js';
 import { getPromptCustomization } from '../lib/settings-helpers.js';
+import type {
+  AgentExecutionOptions,
+  AgentExecutionResult,
+  AgentExecutorCallbacks,
+} from './agent-executor-types.js';
+
+// Re-export types for backward compatibility
+export type {
+  AgentExecutionOptions,
+  AgentExecutionResult,
+  WaitForApprovalFn,
+  SaveFeatureSummaryFn,
+  UpdateFeatureSummaryFn,
+  BuildTaskPromptFn,
+} from './agent-executor-types.js';
 
 const logger = createLogger('AgentExecutor');
-
-export interface AgentExecutionOptions {
-  workDir: string;
-  featureId: string;
-  prompt: string;
-  projectPath: string;
-  abortController: AbortController;
-  imagePaths?: string[];
-  model?: string;
-  planningMode?: PlanningMode;
-  requirePlanApproval?: boolean;
-  previousContent?: string;
-  systemPrompt?: string;
-  autoLoadClaudeMd?: boolean;
-  thinkingLevel?: ThinkingLevel;
-  branchName?: string | null;
-  credentials?: Credentials;
-  claudeCompatibleProvider?: ClaudeCompatibleProvider;
-  mcpServers?: Record<string, unknown>;
-  sdkOptions?: {
-    maxTurns?: number;
-    allowedTools?: string[];
-    systemPrompt?: string | { type: 'preset'; preset: 'claude_code'; append?: string };
-    settingSources?: Array<'user' | 'project' | 'local'>;
-  };
-  provider: BaseProvider;
-  effectiveBareModel: string;
-  specAlreadyDetected?: boolean;
-  existingApprovedPlanContent?: string;
-  persistedTasks?: ParsedTask[];
-}
-
-export interface AgentExecutionResult {
-  responseText: string;
-  specDetected: boolean;
-  tasksCompleted: number;
-  aborted: boolean;
-}
-
-export type WaitForApprovalFn = (
-  featureId: string,
-  projectPath: string
-) => Promise<{ approved: boolean; feedback?: string; editedPlan?: string }>;
-export type SaveFeatureSummaryFn = (
-  projectPath: string,
-  featureId: string,
-  summary: string
-) => Promise<void>;
-export type UpdateFeatureSummaryFn = (
-  projectPath: string,
-  featureId: string,
-  summary: string
-) => Promise<void>;
-export type BuildTaskPromptFn = (
-  task: ParsedTask,
-  allTasks: ParsedTask[],
-  taskIndex: number,
-  planContent: string,
-  taskPromptTemplate: string,
-  userFeedback?: string
-) => string;
 
 export class AgentExecutor {
   private static readonly WRITE_DEBOUNCE_MS = 500;
@@ -105,12 +51,7 @@ export class AgentExecutor {
 
   async execute(
     options: AgentExecutionOptions,
-    callbacks: {
-      waitForApproval: WaitForApprovalFn;
-      saveFeatureSummary: SaveFeatureSummaryFn;
-      updateFeatureSummary: UpdateFeatureSummaryFn;
-      buildTaskPrompt: BuildTaskPromptFn;
-    }
+    callbacks: AgentExecutorCallbacks
   ): Promise<AgentExecutionResult> {
     const {
       workDir,
@@ -340,32 +281,21 @@ export class AgentExecutor {
     return { responseText, specDetected, tasksCompleted, aborted };
   }
 
-  /** Execute tasks loop - shared by recovery and multi-agent paths */
   private async executeTasksLoop(
     options: AgentExecutionOptions,
     tasks: ParsedTask[],
     planContent: string,
     initialResponseText: string,
     scheduleWrite: () => void,
-    callbacks: {
-      waitForApproval: WaitForApprovalFn;
-      saveFeatureSummary: SaveFeatureSummaryFn;
-      updateFeatureSummary: UpdateFeatureSummaryFn;
-      buildTaskPrompt: BuildTaskPromptFn;
-    },
+    callbacks: AgentExecutorCallbacks,
     userFeedback?: string
   ): Promise<{ responseText: string; tasksCompleted: number; aborted: boolean }> {
     const {
-      workDir,
       featureId,
       projectPath,
       abortController,
       branchName = null,
       provider,
-      effectiveBareModel,
-      credentials,
-      claudeCompatibleProvider,
-      mcpServers,
       sdkOptions,
     } = options;
     logger.info(`Starting task execution for feature ${featureId} with ${tasks.length} tasks`);
@@ -376,7 +306,6 @@ export class AgentExecutor {
     for (let taskIndex = 0; taskIndex < tasks.length; taskIndex++) {
       const task = tasks[taskIndex];
       if (task.status === 'completed') {
-        logger.info(`Skipping completed task ${task.id}`);
         tasksCompleted++;
         continue;
       }
@@ -387,7 +316,6 @@ export class AgentExecutor {
         task.id,
         'in_progress'
       );
-      logger.info(`Starting task ${task.id}: ${task.description}`);
       this.eventBus.emitAutoModeEvent('auto_mode_task_started', {
         featureId,
         projectPath,
@@ -408,29 +336,18 @@ export class AgentExecutor {
         taskPrompts.taskExecution.taskPromptTemplate,
         userFeedback
       );
-      const taskStream = provider.executeQuery({
-        prompt: taskPrompt,
-        model: effectiveBareModel,
-        maxTurns: Math.min(sdkOptions?.maxTurns || 100, 50),
-        cwd: workDir,
-        allowedTools: sdkOptions?.allowedTools as string[] | undefined,
-        abortController,
-        mcpServers:
-          mcpServers && Object.keys(mcpServers).length > 0
-            ? (mcpServers as Record<string, { command: string }>)
-            : undefined,
-        credentials,
-        claudeCompatibleProvider,
-      });
+      const taskStream = provider.executeQuery(
+        this.buildExecOpts(options, taskPrompt, Math.min(sdkOptions?.maxTurns || 100, 50))
+      );
       let taskOutput = '',
         taskStartDetected = false,
         taskCompleteDetected = false;
 
       for await (const msg of taskStream) {
         if (msg.type === 'assistant' && msg.message?.content) {
-          for (const block of msg.message.content) {
-            if (block.type === 'text') {
-              const text = block.text || '';
+          for (const b of msg.message.content) {
+            if (b.type === 'text') {
+              const text = b.text || '';
               taskOutput += text;
               responseText += text;
               this.eventBus.emitAutoModeEvent('auto_mode_progress', {
@@ -440,43 +357,43 @@ export class AgentExecutor {
               });
               scheduleWrite();
               if (!taskStartDetected) {
-                const startId = detectTaskStartMarker(taskOutput);
-                if (startId) {
+                const sid = detectTaskStartMarker(taskOutput);
+                if (sid) {
                   taskStartDetected = true;
                   await this.featureStateManager.updateTaskStatus(
                     projectPath,
                     featureId,
-                    startId,
+                    sid,
                     'in_progress'
                   );
                 }
               }
               if (!taskCompleteDetected) {
-                const completeId = detectTaskCompleteMarker(taskOutput);
-                if (completeId) {
+                const cid = detectTaskCompleteMarker(taskOutput);
+                if (cid) {
                   taskCompleteDetected = true;
                   await this.featureStateManager.updateTaskStatus(
                     projectPath,
                     featureId,
-                    completeId,
+                    cid,
                     'completed'
                   );
                 }
               }
-              const phaseNum = detectPhaseCompleteMarker(text);
-              if (phaseNum !== null)
+              const pn = detectPhaseCompleteMarker(text);
+              if (pn !== null)
                 this.eventBus.emitAutoModeEvent('auto_mode_phase_complete', {
                   featureId,
                   projectPath,
                   branchName,
-                  phaseNumber: phaseNum,
+                  phaseNumber: pn,
                 });
-            } else if (block.type === 'tool_use')
+            } else if (b.type === 'tool_use')
               this.eventBus.emitAutoModeEvent('auto_mode_tool', {
                 featureId,
                 branchName,
-                tool: block.name,
-                input: block.input,
+                tool: b.name,
+                input: b.input,
               });
           }
         } else if (msg.type === 'error')
@@ -486,7 +403,6 @@ export class AgentExecutor {
           responseText += msg.result || '';
         }
       }
-
       if (!taskCompleteDetected)
         await this.featureStateManager.updateTaskStatus(
           projectPath,
@@ -495,7 +411,6 @@ export class AgentExecutor {
           'completed'
         );
       tasksCompleted = taskIndex + 1;
-      logger.info(`Task ${task.id} completed for feature ${featureId}`);
       this.eventBus.emitAutoModeEvent('auto_mode_task_complete', {
         featureId,
         projectPath,
@@ -508,8 +423,8 @@ export class AgentExecutor {
         tasksCompleted,
       });
       if (task.phase) {
-        const nextTask = tasks[taskIndex + 1];
-        if (!nextTask || nextTask.phase !== task.phase) {
+        const next = tasks[taskIndex + 1];
+        if (!next || next.phase !== task.phase) {
           const m = task.phase.match(/Phase\s*(\d+)/i);
           if (m)
             this.eventBus.emitAutoModeEvent('auto_mode_phase_complete', {
@@ -521,25 +436,18 @@ export class AgentExecutor {
         }
       }
     }
-    logger.info(`All ${tasks.length} tasks completed for feature ${featureId}`);
     const summary = extractSummary(responseText);
     if (summary) await callbacks.saveFeatureSummary(projectPath, featureId, summary);
     return { responseText, tasksCompleted, aborted: false };
   }
 
-  /** Handle spec generation and approval workflow */
   private async handleSpecGenerated(
     options: AgentExecutionOptions,
     planContent: string,
     initialResponseText: string,
     requiresApproval: boolean,
     scheduleWrite: () => void,
-    callbacks: {
-      waitForApproval: WaitForApprovalFn;
-      saveFeatureSummary: SaveFeatureSummaryFn;
-      updateFeatureSummary: UpdateFeatureSummaryFn;
-      buildTaskPrompt: BuildTaskPromptFn;
-    }
+    callbacks: AgentExecutorCallbacks
   ): Promise<{ responseText: string; tasksCompleted: number }> {
     const {
       workDir,
@@ -639,23 +547,11 @@ export class AgentExecutor {
             status: 'generating',
             version: planVersion,
           });
-          const revStream = provider.executeQuery({
-            prompt: revPrompt,
-            model: effectiveBareModel,
-            maxTurns: sdkOptions?.maxTurns || 100,
-            cwd: workDir,
-            allowedTools: sdkOptions?.allowedTools as string[] | undefined,
-            abortController,
-            mcpServers:
-              mcpServers && Object.keys(mcpServers).length > 0
-                ? (mcpServers as Record<string, { command: string }>)
-                : undefined,
-            credentials,
-            claudeCompatibleProvider,
-          });
           let revText = '';
-          for await (const msg of revStream) {
-            if (msg.type === 'assistant' && msg.message?.content) {
+          for await (const msg of provider.executeQuery(
+            this.buildExecOpts(options, revPrompt, sdkOptions?.maxTurns || 100)
+          )) {
+            if (msg.type === 'assistant' && msg.message?.content)
               for (const b of msg.message.content)
                 if (b.type === 'text') {
                   revText += b.text || '';
@@ -664,7 +560,6 @@ export class AgentExecutor {
                     content: b.text,
                   });
                 }
-            }
             if (msg.type === 'error') throw new Error(msg.error || 'Error during plan revision');
             if (msg.type === 'result' && msg.subtype === 'success') revText += msg.result || '';
           }
@@ -705,10 +600,9 @@ export class AgentExecutor {
       approvedAt: new Date().toISOString(),
       reviewedByUser: requiresApproval,
     });
-
     let tasksCompleted = 0;
     if (parsedTasks.length > 0) {
-      const result = await this.executeTasksLoop(
+      const r = await this.executeTasksLoop(
         options,
         parsedTasks,
         approvedPlanContent,
@@ -717,77 +611,70 @@ export class AgentExecutor {
         callbacks,
         userFeedback
       );
-      responseText = result.responseText;
-      tasksCompleted = result.tasksCompleted;
+      responseText = r.responseText;
+      tasksCompleted = r.tasksCompleted;
     } else {
-      const result = await this.executeSingleAgentContinuation(
+      const r = await this.executeSingleAgentContinuation(
         options,
         approvedPlanContent,
         userFeedback,
         responseText
       );
-      responseText = result.responseText;
+      responseText = r.responseText;
     }
     const summary = extractSummary(responseText);
     if (summary) await callbacks.saveFeatureSummary(projectPath, featureId, summary);
     return { responseText, tasksCompleted };
   }
 
-  /** Single-agent continuation fallback when no tasks parsed */
+  private buildExecOpts(o: AgentExecutionOptions, prompt: string, maxTurns?: number) {
+    return {
+      prompt,
+      model: o.effectiveBareModel,
+      maxTurns,
+      cwd: o.workDir,
+      allowedTools: o.sdkOptions?.allowedTools as string[] | undefined,
+      abortController: o.abortController,
+      mcpServers:
+        o.mcpServers && Object.keys(o.mcpServers).length > 0
+          ? (o.mcpServers as Record<string, { command: string }>)
+          : undefined,
+      credentials: o.credentials,
+      claudeCompatibleProvider: o.claudeCompatibleProvider,
+    };
+  }
+
   private async executeSingleAgentContinuation(
     options: AgentExecutionOptions,
     planContent: string,
     userFeedback: string | undefined,
     initialResponseText: string
   ): Promise<{ responseText: string }> {
-    const {
-      workDir,
-      featureId,
-      abortController,
-      branchName = null,
-      provider,
-      effectiveBareModel,
-      credentials,
-      claudeCompatibleProvider,
-      mcpServers,
-      sdkOptions,
-    } = options;
+    const { featureId, branchName = null, provider } = options;
     logger.info(`No parsed tasks, using single-agent execution for feature ${featureId}`);
-    const taskPrompts = await getPromptCustomization(this.settingsService, '[AutoMode]');
-    const continuationPrompt = taskPrompts.taskExecution.continuationAfterApprovalTemplate
+    const prompts = await getPromptCustomization(this.settingsService, '[AutoMode]');
+    const contPrompt = prompts.taskExecution.continuationAfterApprovalTemplate
       .replace(/\{\{userFeedback\}\}/g, userFeedback || '')
       .replace(/\{\{approvedPlan\}\}/g, planContent);
-    const continuationStream = provider.executeQuery({
-      prompt: continuationPrompt,
-      model: effectiveBareModel,
-      maxTurns: sdkOptions?.maxTurns,
-      cwd: workDir,
-      allowedTools: sdkOptions?.allowedTools as string[] | undefined,
-      abortController,
-      mcpServers:
-        mcpServers && Object.keys(mcpServers).length > 0
-          ? (mcpServers as Record<string, { command: string }>)
-          : undefined,
-      credentials,
-      claudeCompatibleProvider,
-    });
     let responseText = initialResponseText;
-    for await (const msg of continuationStream) {
+    for await (const msg of provider.executeQuery(
+      this.buildExecOpts(options, contPrompt, options.sdkOptions?.maxTurns)
+    )) {
       if (msg.type === 'assistant' && msg.message?.content)
-        for (const block of msg.message.content) {
-          if (block.type === 'text') {
-            responseText += block.text || '';
+        for (const b of msg.message.content) {
+          if (b.type === 'text') {
+            responseText += b.text || '';
             this.eventBus.emitAutoModeEvent('auto_mode_progress', {
               featureId,
               branchName,
-              content: block.text,
+              content: b.text,
             });
-          } else if (block.type === 'tool_use')
+          } else if (b.type === 'tool_use')
             this.eventBus.emitAutoModeEvent('auto_mode_tool', {
               featureId,
               branchName,
-              tool: block.name,
-              input: block.input,
+              tool: b.name,
+              input: b.input,
             });
         }
       else if (msg.type === 'error')

@@ -27,75 +27,32 @@ import type { SettingsService } from './settings-service.js';
 import type { ConcurrencyManager } from './concurrency-manager.js';
 import { pipelineService } from './pipeline-service.js';
 import type { TestRunnerService, TestRunStatus } from './test-runner-service.js';
+import type {
+  PipelineContext,
+  PipelineStatusInfo,
+  StepResult,
+  MergeResult,
+  UpdateFeatureStatusFn,
+  BuildFeaturePromptFn,
+  ExecuteFeatureFn,
+  RunAgentFn,
+} from './pipeline-types.js';
+
+// Re-export types for backward compatibility
+export type {
+  PipelineContext,
+  PipelineStatusInfo,
+  StepResult,
+  MergeResult,
+  UpdateFeatureStatusFn,
+  BuildFeaturePromptFn,
+  ExecuteFeatureFn,
+  RunAgentFn,
+} from './pipeline-types.js';
 
 const logger = createLogger('PipelineOrchestrator');
 
-export interface PipelineContext {
-  projectPath: string;
-  featureId: string;
-  feature: Feature;
-  steps: PipelineStep[];
-  workDir: string;
-  worktreePath: string | null;
-  branchName: string | null;
-  abortController: AbortController;
-  autoLoadClaudeMd: boolean;
-  testAttempts: number;
-  maxTestAttempts: number;
-}
-
-export interface PipelineStatusInfo {
-  isPipeline: boolean;
-  stepId: string | null;
-  stepIndex: number;
-  totalSteps: number;
-  step: PipelineStep | null;
-  config: PipelineConfig | null;
-}
-
-export interface StepResult {
-  success: boolean;
-  testsPassed?: boolean;
-  message?: string;
-}
-export interface MergeResult {
-  success: boolean;
-  hasConflicts?: boolean;
-  needsAgentResolution?: boolean;
-  error?: string;
-}
-
-export type UpdateFeatureStatusFn = (
-  projectPath: string,
-  featureId: string,
-  status: string
-) => Promise<void>;
-export type BuildFeaturePromptFn = (
-  feature: Feature,
-  prompts: { implementationInstructions: string; playwrightVerificationInstructions: string }
-) => string;
-export type ExecuteFeatureFn = (
-  projectPath: string,
-  featureId: string,
-  useWorktrees: boolean,
-  useScreenshots: boolean,
-  model?: string,
-  options?: { _calledInternally?: boolean }
-) => Promise<void>;
-export type RunAgentFn = (
-  workDir: string,
-  featureId: string,
-  prompt: string,
-  abortController: AbortController,
-  projectPath: string,
-  imagePaths?: string[],
-  model?: string,
-  options?: Record<string, unknown>
-) => Promise<void>;
-
 export class PipelineOrchestrator {
-  private serverPort: number;
-
   constructor(
     private eventBus: TypedEventBus,
     private featureStateManager: FeatureStateManager,
@@ -109,14 +66,12 @@ export class PipelineOrchestrator {
     private buildFeaturePromptFn: BuildFeaturePromptFn,
     private executeFeatureFn: ExecuteFeatureFn,
     private runAgentFn: RunAgentFn,
-    serverPort = 3008
-  ) {
-    this.serverPort = serverPort;
-  }
+    private serverPort = 3008
+  ) {}
 
-  async executePipeline(context: PipelineContext): Promise<void> {
+  async executePipeline(ctx: PipelineContext): Promise<void> {
     const { projectPath, featureId, feature, steps, workDir, abortController, autoLoadClaudeMd } =
-      context;
+      ctx;
     const prompts = await getPromptCustomization(this.settingsService, '[AutoMode]');
     const contextResult = await this.loadContextFilesFn({
       projectPath,
@@ -183,8 +138,8 @@ export class PipelineOrchestrator {
         projectPath,
       });
     }
-    if (context.branchName) {
-      const mergeResult = await this.attemptMerge(context);
+    if (ctx.branchName) {
+      const mergeResult = await this.attemptMerge(ctx);
       if (!mergeResult.success && mergeResult.hasConflicts) return;
     }
   }
