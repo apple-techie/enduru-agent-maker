@@ -4,12 +4,16 @@
 
 import type { Request, Response } from 'express';
 import type { AutoModeService } from '../../../services/auto-mode-service.js';
+import type { AutoModeServiceFacade } from '../../../services/auto-mode/index.js';
 import { createLogger } from '@automaker/utils';
 import { getErrorMessage, logError } from '../common.js';
 
 const logger = createLogger('AutoMode');
 
-export function createStartHandler(autoModeService: AutoModeService) {
+export function createStartHandler(
+  autoModeService: AutoModeService,
+  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
+) {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const { projectPath, branchName, maxConcurrency } = req.body as {
@@ -32,6 +36,40 @@ export function createStartHandler(autoModeService: AutoModeService) {
         ? `worktree ${normalizedBranchName}`
         : 'main worktree';
 
+      // Use facade if factory is provided, otherwise fall back to autoModeService
+      if (facadeFactory) {
+        const facade = facadeFactory(projectPath);
+
+        // Check if already running
+        if (facade.isAutoLoopRunning(normalizedBranchName)) {
+          res.json({
+            success: true,
+            message: `Auto mode is already running for ${worktreeDesc}`,
+            alreadyRunning: true,
+            branchName: normalizedBranchName,
+          });
+          return;
+        }
+
+        // Start the auto loop for this project/worktree
+        const resolvedMaxConcurrency = await facade.startAutoLoop(
+          normalizedBranchName,
+          maxConcurrency
+        );
+
+        logger.info(
+          `Started auto loop for ${worktreeDesc} in project: ${projectPath} with maxConcurrency: ${resolvedMaxConcurrency}`
+        );
+
+        res.json({
+          success: true,
+          message: `Auto mode started with max ${resolvedMaxConcurrency} concurrent features`,
+          branchName: normalizedBranchName,
+        });
+        return;
+      }
+
+      // Legacy path: use autoModeService directly
       // Check if already running
       if (autoModeService.isAutoLoopRunningForProject(projectPath, normalizedBranchName)) {
         res.json({

@@ -8,6 +8,7 @@
 import type { Request, Response } from 'express';
 import { createLogger } from '@automaker/utils';
 import type { AutoModeService } from '../../../services/auto-mode-service.js';
+import type { AutoModeServiceFacade } from '../../../services/auto-mode/index.js';
 
 const logger = createLogger('ResumeInterrupted');
 
@@ -15,7 +16,10 @@ interface ResumeInterruptedRequest {
   projectPath: string;
 }
 
-export function createResumeInterruptedHandler(autoModeService: AutoModeService) {
+export function createResumeInterruptedHandler(
+  autoModeService: AutoModeService,
+  facadeFactory?: (projectPath: string) => AutoModeServiceFacade
+) {
   return async (req: Request, res: Response): Promise<void> => {
     const { projectPath } = req.body as ResumeInterruptedRequest;
 
@@ -27,7 +31,14 @@ export function createResumeInterruptedHandler(autoModeService: AutoModeService)
     logger.info(`Checking for interrupted features in ${projectPath}`);
 
     try {
-      await autoModeService.resumeInterruptedFeatures(projectPath);
+      // Use facade if factory is provided, otherwise fall back to autoModeService
+      if (facadeFactory) {
+        const facade = facadeFactory(projectPath);
+        await facade.resumeInterruptedFeatures();
+      } else {
+        await autoModeService.resumeInterruptedFeatures(projectPath);
+      }
+
       res.json({
         success: true,
         message: 'Resume check completed',
