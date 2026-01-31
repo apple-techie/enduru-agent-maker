@@ -255,7 +255,7 @@ export class AgentExecutor {
                 input: block.input,
               });
               if (responseText.length > 0 && !responseText.endsWith('\n')) responseText += '\n';
-              responseText += `\n Tool: ${block.name}\n`;
+              responseText += `\n🔧 Tool: ${block.name}\n`;
               if (block.input) responseText += `Input: ${JSON.stringify(block.input, null, 2)}\n`;
               scheduleWrite();
             }
