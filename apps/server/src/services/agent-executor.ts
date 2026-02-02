@@ -4,7 +4,7 @@
 
 import path from 'path';
 import type { ExecuteOptions, ParsedTask } from '@automaker/types';
-import { buildPromptWithImages, createLogger } from '@automaker/utils';
+import { buildPromptWithImages, createLogger, isAuthenticationError } from '@automaker/utils';
 import { getFeatureDir } from '@automaker/platform';
 import * as secureFs from '../lib/secure-fs.js';
 import { TypedEventBus } from './typed-event-bus.js';
@@ -206,14 +206,10 @@ export class AgentExecutor {
                   responseText += '\n\n';
               }
               responseText += newText;
-              if (
-                block.text &&
-                (block.text.includes('Invalid API key') ||
-                  block.text.includes('authentication_failed') ||
-                  block.text.includes('Fix external API key'))
-              )
+              // Check for authentication errors using provider-agnostic utility
+              if (block.text && isAuthenticationError(block.text))
                 throw new Error(
-                  "Authentication failed: Invalid or expired API key. Please check your ANTHROPIC_API_KEY, or run 'claude login' to re-authenticate."
+                  'Authentication failed: Invalid or expired API key. Please check your API key configuration or re-authenticate with your provider.'
                 );
               scheduleWrite();
               const hasExplicitMarker = responseText.includes('[SPEC_GENERATED]'),

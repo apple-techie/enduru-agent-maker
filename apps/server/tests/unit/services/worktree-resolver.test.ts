@@ -1,11 +1,19 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import { WorktreeResolver, type WorktreeInfo } from '@/services/worktree-resolver.js';
 import { exec } from 'child_process';
+import path from 'path';
 
 // Mock child_process
 vi.mock('child_process', () => ({
   exec: vi.fn(),
 }));
+
+/**
+ * Helper to normalize paths for cross-platform test compatibility.
+ * On Windows, path.resolve('/Users/dev/project') returns 'C:\Users\dev\project' (with current drive).
+ * This helper ensures test expectations match the actual platform behavior.
+ */
+const normalizePath = (p: string): string => path.resolve(p);
 
 // Create promisified mock helper
 const mockExecAsync = (
@@ -94,9 +102,9 @@ branch refs/heads/feature-y
     it('should find worktree by branch name', async () => {
       mockExecAsync(async () => ({ stdout: porcelainOutput, stderr: '' }));
 
-      const path = await resolver.findWorktreeForBranch('/Users/dev/project', 'feature-x');
+      const result = await resolver.findWorktreeForBranch('/Users/dev/project', 'feature-x');
 
-      expect(path).toBe('/Users/dev/project/.worktrees/feature-x');
+      expect(result).toBe(normalizePath('/Users/dev/project/.worktrees/feature-x'));
     });
 
     it('should return null when branch not found', async () => {
@@ -120,9 +128,9 @@ branch refs/heads/feature-y
     it('should find main worktree', async () => {
       mockExecAsync(async () => ({ stdout: porcelainOutput, stderr: '' }));
 
-      const path = await resolver.findWorktreeForBranch('/Users/dev/project', 'main');
+      const result = await resolver.findWorktreeForBranch('/Users/dev/project', 'main');
 
-      expect(path).toBe('/Users/dev/project');
+      expect(result).toBe(normalizePath('/Users/dev/project'));
     });
 
     it('should handle porcelain output without trailing newline', async () => {
@@ -134,9 +142,9 @@ branch refs/heads/feature-x`;
 
       mockExecAsync(async () => ({ stdout: noTrailingNewline, stderr: '' }));
 
-      const path = await resolver.findWorktreeForBranch('/Users/dev/project', 'feature-x');
+      const result = await resolver.findWorktreeForBranch('/Users/dev/project', 'feature-x');
 
-      expect(path).toBe('/Users/dev/project/.worktrees/feature-x');
+      expect(result).toBe(normalizePath('/Users/dev/project/.worktrees/feature-x'));
     });
 
     it('should resolve relative paths to absolute', async () => {
@@ -151,8 +159,8 @@ branch refs/heads/feature-relative
 
       const result = await resolver.findWorktreeForBranch('/Users/dev/project', 'feature-relative');
 
-      // Should resolve to absolute path
-      expect(result).toBe('/Users/dev/project/.worktrees/feature-relative');
+      // Should resolve to absolute path (platform-specific)
+      expect(result).toBe(normalizePath('/Users/dev/project/.worktrees/feature-relative'));
     });
 
     it('should use projectPath as cwd for git command', async () => {
@@ -186,17 +194,17 @@ branch refs/heads/feature-y
 
       expect(worktrees).toHaveLength(3);
       expect(worktrees[0]).toEqual({
-        path: '/Users/dev/project',
+        path: normalizePath('/Users/dev/project'),
         branch: 'main',
         isMain: true,
       });
       expect(worktrees[1]).toEqual({
-        path: '/Users/dev/project/.worktrees/feature-x',
+        path: normalizePath('/Users/dev/project/.worktrees/feature-x'),
         branch: 'feature-x',
         isMain: false,
       });
       expect(worktrees[2]).toEqual({
-        path: '/Users/dev/project/.worktrees/feature-y',
+        path: normalizePath('/Users/dev/project/.worktrees/feature-y'),
         branch: 'feature-y',
         isMain: false,
       });
@@ -226,7 +234,7 @@ detached
 
       expect(worktrees).toHaveLength(2);
       expect(worktrees[1]).toEqual({
-        path: '/Users/dev/project/.worktrees/detached-wt',
+        path: normalizePath('/Users/dev/project/.worktrees/detached-wt'),
         branch: null, // Detached HEAD has no branch
         isMain: false,
       });
@@ -264,7 +272,7 @@ branch refs/heads/relative-branch
 
       const worktrees = await resolver.listWorktrees('/Users/dev/project');
 
-      expect(worktrees[1].path).toBe('/Users/dev/project/.worktrees/relative-wt');
+      expect(worktrees[1].path).toBe(normalizePath('/Users/dev/project/.worktrees/relative-wt'));
     });
 
     it('should handle single worktree (main only)', async () => {
@@ -278,7 +286,7 @@ branch refs/heads/main
 
       expect(worktrees).toHaveLength(1);
       expect(worktrees[0]).toEqual({
-        path: '/Users/dev/project',
+        path: normalizePath('/Users/dev/project'),
         branch: 'main',
         isMain: true,
       });

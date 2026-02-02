@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import path from 'path';
 import type { Feature } from '@automaker/types';
+
+/**
+ * Helper to normalize paths for cross-platform test compatibility.
+ */
+const normalizePath = (p: string): string => path.resolve(p);
 import {
   ExecutionService,
   type RunAgentFn,
@@ -931,8 +937,8 @@ describe('execution-service.ts', () => {
       // Should still run agent, just with project path
       expect(mockRunAgentFn).toHaveBeenCalled();
       const callArgs = mockRunAgentFn.mock.calls[0];
-      // First argument is workDir - should end with /test/project
-      expect(callArgs[0]).toMatch(/\/test\/project$/);
+      // First argument is workDir - should be normalized path to /test/project
+      expect(callArgs[0]).toBe(normalizePath('/test/project'));
     });
 
     it('skips worktree resolution when useWorktrees is false', async () => {

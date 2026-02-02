@@ -35,6 +35,13 @@ vi.mock('../../../src/services/pipeline-service.js', () => ({
   },
 }));
 
+// Mock merge-service
+vi.mock('../../../src/services/merge-service.js', () => ({
+  performMerge: vi.fn(),
+}));
+
+import { performMerge } from '../../../src/services/merge-service.js';
+
 // Mock secureFs
 vi.mock('../../../src/lib/secure-fs.js', () => ({
   readFile: vi.fn(),
@@ -470,36 +477,26 @@ describe('PipelineOrchestrator', () => {
     });
 
     beforeEach(() => {
-      global.fetch = vi.fn();
+      vi.mocked(performMerge).mockReset();
     });
 
-    afterEach(() => {
-      vi.mocked(global.fetch).mockReset();
-    });
-
-    it('should call merge endpoint with correct parameters', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true }),
-      } as never);
+    it('should call performMerge with correct parameters', async () => {
+      vi.mocked(performMerge).mockResolvedValue({ success: true });
 
       const context = createMergeContext();
       await orchestrator.attemptMerge(context);
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/worktree/merge'),
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('feature/test-1'),
-        })
+      expect(performMerge).toHaveBeenCalledWith(
+        '/test/project',
+        'feature/test-1',
+        '/test/worktree',
+        'main',
+        { deleteWorktreeAndBranch: false }
       );
     });
 
     it('should return success on clean merge', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true }),
-      } as never);
+      vi.mocked(performMerge).mockResolvedValue({ success: true });
 
       const context = createMergeContext();
       const result = await orchestrator.attemptMerge(context);
@@ -509,10 +506,11 @@ describe('PipelineOrchestrator', () => {
     });
 
     it('should set merge_conflict status when hasConflicts is true', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: false,
-        json: vi.fn().mockResolvedValue({ success: false, hasConflicts: true }),
-      } as never);
+      vi.mocked(performMerge).mockResolvedValue({
+        success: false,
+        hasConflicts: true,
+        error: 'Merge conflict',
+      });
 
       const context = createMergeContext();
       await orchestrator.attemptMerge(context);
@@ -525,10 +523,11 @@ describe('PipelineOrchestrator', () => {
     });
 
     it('should emit pipeline_merge_conflict event on conflict', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: false,
-        json: vi.fn().mockResolvedValue({ success: false, hasConflicts: true }),
-      } as never);
+      vi.mocked(performMerge).mockResolvedValue({
+        success: false,
+        hasConflicts: true,
+        error: 'Merge conflict',
+      });
 
       const context = createMergeContext();
       await orchestrator.attemptMerge(context);
@@ -540,10 +539,7 @@ describe('PipelineOrchestrator', () => {
     });
 
     it('should emit auto_mode_feature_complete on success', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true }),
-      } as never);
+      vi.mocked(performMerge).mockResolvedValue({ success: true });
 
       const context = createMergeContext();
       await orchestrator.attemptMerge(context);
@@ -555,10 +551,11 @@ describe('PipelineOrchestrator', () => {
     });
 
     it('should return needsAgentResolution true on conflict', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: false,
-        json: vi.fn().mockResolvedValue({ success: false, hasConflicts: true }),
-      } as never);
+      vi.mocked(performMerge).mockResolvedValue({
+        success: false,
+        hasConflicts: true,
+        error: 'Merge conflict',
+      });
 
       const context = createMergeContext();
       const result = await orchestrator.attemptMerge(context);
@@ -728,10 +725,7 @@ describe('PipelineOrchestrator', () => {
     });
 
     beforeEach(() => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true }),
-      } as never);
+      vi.mocked(performMerge).mockResolvedValue({ success: true });
     });
 
     it('should execute steps in sequence', async () => {
@@ -792,9 +786,12 @@ describe('PipelineOrchestrator', () => {
       const context = createPipelineContext();
       await orchestrator.executePipeline(context);
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/worktree/merge'),
-        expect.any(Object)
+      expect(performMerge).toHaveBeenCalledWith(
+        '/test/project',
+        'feature/test-1',
+        '/test/project', // Falls back to projectPath when worktreePath is null
+        'main',
+        { deleteWorktreeAndBranch: false }
       );
     });
   });
@@ -816,10 +813,7 @@ describe('PipelineOrchestrator', () => {
       });
 
       beforeEach(() => {
-        global.fetch = vi.fn().mockResolvedValue({
-          ok: true,
-          json: vi.fn().mockResolvedValue({ success: true }),
-        } as never);
+        vi.mocked(performMerge).mockResolvedValue({ success: true });
       });
 
       it('builds PipelineContext with correct fields from executeFeature', async () => {
@@ -845,11 +839,12 @@ describe('PipelineOrchestrator', () => {
         await orchestrator.executePipeline(context);
 
         // Merge should receive the worktree path
-        expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/worktree/merge'),
-          expect.objectContaining({
-            body: expect.stringContaining('/test/custom-worktree'),
-          })
+        expect(performMerge).toHaveBeenCalledWith(
+          '/test/project',
+          'feature/test-1',
+          '/test/custom-worktree',
+          'main',
+          { deleteWorktreeAndBranch: false }
         );
       });
 
@@ -860,11 +855,12 @@ describe('PipelineOrchestrator', () => {
 
         await orchestrator.executePipeline(context);
 
-        expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/worktree/merge'),
-          expect.objectContaining({
-            body: expect.stringContaining('feature/custom-branch'),
-          })
+        expect(performMerge).toHaveBeenCalledWith(
+          '/test/project',
+          'feature/custom-branch',
+          '/test/worktree',
+          'main',
+          { deleteWorktreeAndBranch: false }
         );
       });
 

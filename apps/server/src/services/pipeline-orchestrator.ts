@@ -27,6 +27,7 @@ import type { SettingsService } from './settings-service.js';
 import type { ConcurrencyManager } from './concurrency-manager.js';
 import { pipelineService } from './pipeline-service.js';
 import type { TestRunnerService, TestRunStatus } from './test-runner-service.js';
+import { performMerge } from './merge-service.js';
 import type {
   PipelineContext,
   PipelineStatusInfo,
@@ -65,8 +66,7 @@ export class PipelineOrchestrator {
     private loadContextFilesFn: typeof loadContextFiles,
     private buildFeaturePromptFn: BuildFeaturePromptFn,
     private executeFeatureFn: ExecuteFeatureFn,
-    private runAgentFn: RunAgentFn,
-    private serverPort = 3008
+    private runAgentFn: RunAgentFn
   ) {}
 
   async executePipeline(ctx: PipelineContext): Promise<void> {
@@ -483,37 +483,19 @@ export class PipelineOrchestrator {
 
     logger.info(`Attempting auto-merge for feature ${featureId} (branch: ${branchName})`);
     try {
-      const response = await fetch(`http://localhost:${this.serverPort}/api/worktree/merge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectPath,
-          branchName,
-          worktreePath,
-          targetBranch: 'main',
-          options: { deleteWorktreeAndBranch: false },
-        }),
-      });
+      // Call merge service directly instead of HTTP fetch
+      const result = await performMerge(
+        projectPath,
+        branchName,
+        worktreePath || projectPath,
+        'main',
+        {
+          deleteWorktreeAndBranch: false,
+        }
+      );
 
-      if (!response) {
-        return { success: false, error: 'No response from merge endpoint' };
-      }
-
-      // Defensively parse JSON response
-      let data: { success: boolean; hasConflicts?: boolean; error?: string };
-      try {
-        data = (await response.json()) as {
-          success: boolean;
-          hasConflicts?: boolean;
-          error?: string;
-        };
-      } catch (parseError) {
-        logger.error(`Failed to parse merge response:`, parseError);
-        return { success: false, error: 'Invalid response from merge endpoint' };
-      }
-
-      if (!response.ok) {
-        if (data.hasConflicts) {
+      if (!result.success) {
+        if (result.hasConflicts) {
           await this.updateFeatureStatusFn(projectPath, featureId, 'merge_conflict');
           this.eventBus.emitAutoModeEvent('pipeline_merge_conflict', {
             featureId,
@@ -522,7 +504,7 @@ export class PipelineOrchestrator {
           });
           return { success: false, hasConflicts: true, needsAgentResolution: true };
         }
-        return { success: false, error: data.error };
+        return { success: false, error: result.error };
       }
 
       logger.info(`Auto-merge successful for feature ${featureId}`);

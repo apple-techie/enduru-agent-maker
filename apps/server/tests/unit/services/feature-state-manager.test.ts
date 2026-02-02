@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import path from 'path';
 import { FeatureStateManager } from '@/services/feature-state-manager.js';
 import type { Feature } from '@automaker/types';
 import type { EventEmitter } from '@/lib/events.js';
@@ -7,6 +8,12 @@ import * as secureFs from '@/lib/secure-fs.js';
 import { atomicWriteJson, readJsonWithRecovery } from '@automaker/utils';
 import { getFeatureDir, getFeaturesDir } from '@automaker/platform';
 import { getNotificationService } from '@/services/notification-service.js';
+
+/**
+ * Helper to normalize paths for cross-platform test compatibility.
+ * Uses path.normalize (not path.resolve) to match path.join behavior in production code.
+ */
+const normalizePath = (p: string): string => path.normalize(p);
 
 // Mock dependencies
 vi.mock('@/lib/secure-fs.js', () => ({
@@ -78,7 +85,7 @@ describe('FeatureStateManager', () => {
       expect(feature).toEqual(mockFeature);
       expect(getFeatureDir).toHaveBeenCalledWith('/project', 'feature-123');
       expect(readJsonWithRecovery).toHaveBeenCalledWith(
-        '/project/.automaker/features/feature-123/feature.json',
+        normalizePath('/project/.automaker/features/feature-123/feature.json'),
         null,
         expect.objectContaining({ autoRestore: true })
       );

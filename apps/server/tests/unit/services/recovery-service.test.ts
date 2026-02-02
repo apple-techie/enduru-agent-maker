@@ -9,8 +9,15 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import path from 'path';
 import { RecoveryService, DEFAULT_EXECUTION_STATE } from '@/services/recovery-service.js';
 import type { Feature } from '@automaker/types';
+
+/**
+ * Helper to normalize paths for cross-platform test compatibility.
+ * Uses path.normalize (not path.resolve) to match path.join behavior in production code.
+ */
+const normalizePath = (p: string): string => path.normalize(p);
 
 // Mock dependencies
 vi.mock('@automaker/utils', () => ({
@@ -288,7 +295,7 @@ describe('recovery-service.ts', () => {
 
       expect(result).toBe(true);
       expect(secureFs.access).toHaveBeenCalledWith(
-        '/test/project/.automaker/features/feature-1/agent-output.md'
+        normalizePath('/test/project/.automaker/features/feature-1/agent-output.md')
       );
     });
 

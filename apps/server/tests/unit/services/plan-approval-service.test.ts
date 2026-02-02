@@ -54,6 +54,8 @@ describe('PlanApprovalService', () => {
 
     it('should timeout and reject after configured period', async () => {
       const approvalPromise = service.waitForApproval('feature-1', '/project');
+      // Attach catch to prevent unhandled rejection warning (will be properly asserted below)
+      approvalPromise.catch(() => {});
       // Flush the async initialization
       await vi.advanceTimersByTimeAsync(0);
 
@@ -73,6 +75,8 @@ describe('PlanApprovalService', () => {
       } as never);
 
       const approvalPromise = service.waitForApproval('feature-1', '/project');
+      // Attach catch to prevent unhandled rejection warning (will be properly asserted below)
+      approvalPromise.catch(() => {});
       // Flush the async initialization
       await vi.advanceTimersByTimeAsync(0);
 
@@ -93,6 +97,8 @@ describe('PlanApprovalService', () => {
       );
 
       const approvalPromise = serviceNoSettings.waitForApproval('feature-1', '/project');
+      // Attach catch to prevent unhandled rejection warning (will be properly asserted below)
+      approvalPromise.catch(() => {});
       // Flush async
       await vi.advanceTimersByTimeAsync(0);
 
@@ -417,6 +423,8 @@ describe('PlanApprovalService', () => {
       } as never);
 
       const approvalPromise = service.waitForApproval('feature-1', '/project');
+      // Attach catch to prevent unhandled rejection warning (will be properly asserted below)
+      approvalPromise.catch(() => {});
       await vi.advanceTimersByTimeAsync(0);
 
       // Should not timeout at 4 minutes
@@ -432,6 +440,8 @@ describe('PlanApprovalService', () => {
       vi.mocked(mockSettingsService!.getProjectSettings).mockRejectedValue(new Error('Failed'));
 
       const approvalPromise = service.waitForApproval('feature-1', '/project');
+      // Attach catch to prevent unhandled rejection warning (will be properly asserted below)
+      approvalPromise.catch(() => {});
       await vi.advanceTimersByTimeAsync(0);
 
       // Should use default 30 minute timeout
@@ -448,6 +458,8 @@ describe('PlanApprovalService', () => {
       } as never);
 
       const approvalPromise = service.waitForApproval('feature-1', '/project');
+      // Attach catch to prevent unhandled rejection warning (will be properly asserted below)
+      approvalPromise.catch(() => {});
       await vi.advanceTimersByTimeAsync(0);
 
       // Should use default 30 minute timeout
