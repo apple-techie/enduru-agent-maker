@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Plus, Bug, FolderOpen, BookOpen } from 'lucide-react';
 import { useNavigate, useLocation } from '@tanstack/react-router';
-import { cn } from '@/lib/utils';
+import { cn, isMac } from '@/lib/utils';
 import { useAppStore } from '@/store/app-store';
 import { useOSDetection } from '@/hooks/use-os-detection';
 import { ProjectSwitcherItem } from './components/project-switcher-item';
@@ -11,9 +11,12 @@ import { NotificationBell } from './components/notification-bell';
 import { NewProjectModal } from '@/components/dialogs/new-project-modal';
 import { OnboardingDialog } from '@/components/layout/sidebar/dialogs';
 import { useProjectCreation } from '@/components/layout/sidebar/hooks';
-import { SIDEBAR_FEATURE_FLAGS } from '@/components/layout/sidebar/constants';
+import {
+  MACOS_ELECTRON_TOP_PADDING_CLASS,
+  SIDEBAR_FEATURE_FLAGS,
+} from '@/components/layout/sidebar/constants';
 import type { Project } from '@/lib/electron';
-import { getElectronAPI } from '@/lib/electron';
+import { getElectronAPI, isElectron } from '@/lib/electron';
 import { initializeProject, hasAppSpec, hasAutomakerDir } from '@/lib/project-init';
 import { toast } from 'sonner';
 import { CreateSpecDialog } from '@/components/views/spec-view/dialogs';
@@ -279,7 +282,12 @@ export function ProjectSwitcher() {
         data-testid="project-switcher"
       >
         {/* Automaker Logo and Version */}
-        <div className="flex flex-col items-center pt-3 pb-2 px-2">
+        <div
+          className={cn(
+            'flex flex-col items-center pb-2 px-2',
+            isMac && isElectron() ? MACOS_ELECTRON_TOP_PADDING_CLASS : 'pt-3'
+          )}
+        >
           <button
             onClick={() => navigate({ to: '/dashboard' })}
             className="group flex flex-col items-center gap-0.5"

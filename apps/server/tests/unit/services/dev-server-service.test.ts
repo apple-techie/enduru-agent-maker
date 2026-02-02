@@ -30,10 +30,15 @@ import net from 'net';
 
 describe('dev-server-service.ts', () => {
   let testDir: string;
+  let originalHostname: string | undefined;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
+
+    // Store and set HOSTNAME for consistent test behavior
+    originalHostname = process.env.HOSTNAME;
+    process.env.HOSTNAME = 'localhost';
 
     testDir = path.join(os.tmpdir(), `dev-server-test-${Date.now()}`);
     await fs.mkdir(testDir, { recursive: true });
@@ -56,6 +61,13 @@ describe('dev-server-service.ts', () => {
   });
 
   afterEach(async () => {
+    // Restore original HOSTNAME
+    if (originalHostname === undefined) {
+      delete process.env.HOSTNAME;
+    } else {
+      process.env.HOSTNAME = originalHostname;
+    }
+
     try {
       await fs.rm(testDir, { recursive: true, force: true });
     } catch {

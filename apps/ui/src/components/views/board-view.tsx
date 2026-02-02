@@ -1275,8 +1275,10 @@ export function BoardView() {
         maxConcurrency={maxConcurrency}
         runningAgentsCount={runningAutoTasks.length}
         onConcurrencyChange={(newMaxConcurrency) => {
-          if (currentProject && selectedWorktree) {
-            const branchName = selectedWorktree.isMain ? null : selectedWorktree.branch;
+          if (currentProject) {
+            // If selectedWorktree is undefined or it's the main worktree, branchName will be null.
+            // Otherwise, use the branch name.
+            const branchName = selectedWorktree?.isMain === false ? selectedWorktree.branch : null;
             setMaxConcurrencyForWorktree(currentProject.id, branchName, newMaxConcurrency);
 
             // Persist to server settings so capacity checks use the correct value
