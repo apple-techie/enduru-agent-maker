@@ -27,7 +27,7 @@ services:
       # - playwright-cache:/home/automaker/.cache/ms-playwright
       #
       # To update Playwright browsers manually:
-      #   docker exec automaker-server npx playwright install chromium
+      #   docker exec --user automaker -w /app automaker-server npx playwright install chromium
     environment:
       # Set root directory for all projects and file operations
       # Users can only create/open projects within this directory

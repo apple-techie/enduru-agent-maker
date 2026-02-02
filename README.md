@@ -344,7 +344,7 @@ The Docker image includes **Playwright Chromium pre-installed** for AI agent ver
 
 **No additional setup required** - Playwright verification works out of the box.
 
-**Optional: Persist browsers for manual updates**
+#### Optional: Persist browsers for manual updates
 
 By default, Playwright Chromium is pre-installed in the Docker image. If you need to manually update browsers or want to persist browser installations across container restarts (not image rebuilds), you can mount a volume.
 
@@ -352,7 +352,7 @@ By default, Playwright Chromium is pre-installed in the Docker image. If you nee
 
 ```bash
 # After adding the volume mount for the first time
-docker exec automaker-server npx playwright install chromium
+docker exec --user automaker -w /app automaker-server npx playwright install chromium
 ```
 
 Add this to your `docker-compose.override.yml`:
@@ -371,7 +371,7 @@ volumes:
 **Updating browsers manually:**
 
 ```bash
-docker exec automaker-server npx playwright install chromium
+docker exec --user automaker -w /app automaker-server npx playwright install chromium
 ```
 
 ### Testing
