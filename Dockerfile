@@ -121,9 +121,11 @@ RUN curl -fsSL https://opencode.ai/install | bash && \
 
 # Install Playwright Chromium browser for AI agent verification tests
 # This adds ~300MB to the image but enables automated testing mode out of the box
+# Clean up npx cache after installation to reduce image size
 RUN npx playwright install chromium && \
     echo "=== Playwright Chromium installed ===" && \
-    ls -la /home/automaker/.cache/ms-playwright/ || echo "Playwright browsers installed"
+    ls -la /home/automaker/.cache/ms-playwright/ || echo "Playwright browsers installed" && \
+    rm -rf /home/automaker/.npm/_npx
 USER root
 
 # Add PATH to profile so it's available in all interactive shells (for login shells)
