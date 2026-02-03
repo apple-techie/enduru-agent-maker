@@ -27,14 +27,16 @@ export type { ModelAlias };
  *
  * Includes system theme and multiple color schemes organized by dark/light:
  * - System: Respects OS dark/light mode preference
- * - Dark themes (16): dark, retro, dracula, nord, monokai, tokyonight, solarized,
- *   gruvbox, catppuccin, onedark, synthwave, red, sunset, gray, forest, ocean
- * - Light themes (16): light, cream, solarizedlight, github, paper, rose, mint,
- *   lavender, sand, sky, peach, snow, sepia, gruvboxlight, nordlight, blossom
+ * - Dark themes (20): dark, retro, dracula, nord, monokai, tokyonight, solarized,
+ *   gruvbox, catppuccin, onedark, synthwave, red, sunset, gray, forest, ocean,
+ *   ember, ayu-dark, ayu-mirage, matcha
+ * - Light themes (20): light, cream, solarizedlight, github, paper, rose, mint,
+ *   lavender, sand, sky, peach, snow, sepia, gruvboxlight, nordlight, blossom,
+ *   ayu-light, onelight, bluloco, feather
  */
 export type ThemeMode =
   | 'system'
-  // Dark themes (16)
+  // Dark themes (20)
   | 'dark'
   | 'retro'
   | 'dracula'
@@ -51,7 +53,11 @@ export type ThemeMode =
   | 'gray'
   | 'forest'
   | 'ocean'
-  // Light themes (16)
+  | 'ember'
+  | 'ayu-dark'
+  | 'ayu-mirage'
+  | 'matcha'
+  // Light themes (20)
   | 'light'
   | 'cream'
   | 'solarizedlight'
@@ -67,7 +73,138 @@ export type ThemeMode =
   | 'sepia'
   | 'gruvboxlight'
   | 'nordlight'
-  | 'blossom';
+  | 'blossom'
+  | 'ayu-light'
+  | 'onelight'
+  | 'bluloco'
+  | 'feather';
+
+export type TerminalPromptTheme =
+  | 'custom'
+  | 'omp-1_shell'
+  | 'omp-agnoster'
+  | 'omp-agnoster.minimal'
+  | 'omp-agnosterplus'
+  | 'omp-aliens'
+  | 'omp-amro'
+  | 'omp-atomic'
+  | 'omp-atomicBit'
+  | 'omp-avit'
+  | 'omp-blue-owl'
+  | 'omp-blueish'
+  | 'omp-bubbles'
+  | 'omp-bubblesextra'
+  | 'omp-bubblesline'
+  | 'omp-capr4n'
+  | 'omp-catppuccin'
+  | 'omp-catppuccin_frappe'
+  | 'omp-catppuccin_latte'
+  | 'omp-catppuccin_macchiato'
+  | 'omp-catppuccin_mocha'
+  | 'omp-cert'
+  | 'omp-chips'
+  | 'omp-cinnamon'
+  | 'omp-clean-detailed'
+  | 'omp-cloud-context'
+  | 'omp-cloud-native-azure'
+  | 'omp-cobalt2'
+  | 'omp-craver'
+  | 'omp-darkblood'
+  | 'omp-devious-diamonds'
+  | 'omp-di4am0nd'
+  | 'omp-dracula'
+  | 'omp-easy-term'
+  | 'omp-emodipt'
+  | 'omp-emodipt-extend'
+  | 'omp-fish'
+  | 'omp-free-ukraine'
+  | 'omp-froczh'
+  | 'omp-gmay'
+  | 'omp-glowsticks'
+  | 'omp-grandpa-style'
+  | 'omp-gruvbox'
+  | 'omp-half-life'
+  | 'omp-honukai'
+  | 'omp-hotstick.minimal'
+  | 'omp-hul10'
+  | 'omp-hunk'
+  | 'omp-huvix'
+  | 'omp-if_tea'
+  | 'omp-illusi0n'
+  | 'omp-iterm2'
+  | 'omp-jandedobbeleer'
+  | 'omp-jblab_2021'
+  | 'omp-jonnychipz'
+  | 'omp-json'
+  | 'omp-jtracey93'
+  | 'omp-jv_sitecorian'
+  | 'omp-kali'
+  | 'omp-kushal'
+  | 'omp-lambda'
+  | 'omp-lambdageneration'
+  | 'omp-larserikfinholt'
+  | 'omp-lightgreen'
+  | 'omp-M365Princess'
+  | 'omp-marcduiker'
+  | 'omp-markbull'
+  | 'omp-material'
+  | 'omp-microverse-power'
+  | 'omp-mojada'
+  | 'omp-montys'
+  | 'omp-mt'
+  | 'omp-multiverse-neon'
+  | 'omp-negligible'
+  | 'omp-neko'
+  | 'omp-night-owl'
+  | 'omp-nordtron'
+  | 'omp-nu4a'
+  | 'omp-onehalf.minimal'
+  | 'omp-paradox'
+  | 'omp-pararussel'
+  | 'omp-patriksvensson'
+  | 'omp-peru'
+  | 'omp-pixelrobots'
+  | 'omp-plague'
+  | 'omp-poshmon'
+  | 'omp-powerlevel10k_classic'
+  | 'omp-powerlevel10k_lean'
+  | 'omp-powerlevel10k_modern'
+  | 'omp-powerlevel10k_rainbow'
+  | 'omp-powerline'
+  | 'omp-probua.minimal'
+  | 'omp-pure'
+  | 'omp-quick-term'
+  | 'omp-remk'
+  | 'omp-robbyrussell'
+  | 'omp-rudolfs-dark'
+  | 'omp-rudolfs-light'
+  | 'omp-sim-web'
+  | 'omp-slim'
+  | 'omp-slimfat'
+  | 'omp-smoothie'
+  | 'omp-sonicboom_dark'
+  | 'omp-sonicboom_light'
+  | 'omp-sorin'
+  | 'omp-space'
+  | 'omp-spaceship'
+  | 'omp-star'
+  | 'omp-stelbent-compact.minimal'
+  | 'omp-stelbent.minimal'
+  | 'omp-takuya'
+  | 'omp-the-unnamed'
+  | 'omp-thecyberden'
+  | 'omp-tiwahu'
+  | 'omp-tokyo'
+  | 'omp-tokyonight_storm'
+  | 'omp-tonybaloney'
+  | 'omp-uew'
+  | 'omp-unicorn'
+  | 'omp-velvet'
+  | 'omp-wholespace'
+  | 'omp-wopian'
+  | 'omp-xtoys'
+  | 'omp-ys'
+  | 'omp-zash';
 
 /** PlanningMode - Planning levels for feature generation workflows */
 export type PlanningMode = 'skip' | 'lite' | 'spec' | 'full';
@@ -840,6 +977,39 @@ export interface GlobalSettings {
   // Terminal Configuration
   /** How to open terminals from "Open in Terminal" worktree action */
   openTerminalMode?: 'newTab' | 'split';
+  /** Custom terminal configuration settings (prompt theming, aliases, env vars) */
+  terminalConfig?: {
+    /** Enable custom terminal configurations (default: false) */
+    enabled: boolean;
+    /** Enable custom prompt (default: true when enabled) */
+    customPrompt: boolean;
+    /** Prompt format template */
+    promptFormat: 'standard' | 'minimal' | 'powerline' | 'starship';
+    /** Prompt theme preset */
+    promptTheme?: TerminalPromptTheme;
+    /** Show git branch in prompt (default: true) */
+    showGitBranch: boolean;
+    /** Show git status dirty indicator (default: true) */
+    showGitStatus: boolean;
+    /** Show user and host in prompt (default: true) */
+    showUserHost: boolean;
+    /** Show path in prompt (default: true) */
+    showPath: boolean;
+    /** Path display style */
+    pathStyle: 'full' | 'short' | 'basename';
+    /** Limit path depth (0 = full path) */
+    pathDepth: number;
+    /** Show current time in prompt (default: false) */
+    showTime: boolean;
+    /** Show last command exit status when non-zero (default: false) */
+    showExitStatus: boolean;
+    /** User-provided custom aliases (multiline string) */
+    customAliases: string;
+    /** User-provided custom env vars */
+    customEnvVars: Record<string, string>;
+    /** RC file format version (for migration) */
+    rcFileVersion?: number;
+  };
 
   // UI State Preferences
   /** Whether sidebar is currently open */
@@ -1244,6 +1414,33 @@ export interface ProjectSettings {
    * If not specified, falls back to the global defaultFeatureModel setting.
    */
   defaultFeatureModel?: PhaseModelEntry;
+
+  // Terminal Configuration Override (per-project)
+  /** Project-specific terminal config overrides */
+  terminalConfig?: {
+    /** Override global enabled setting */
+    enabled?: boolean;
+    /** Override prompt theme preset */
+    promptTheme?: TerminalPromptTheme;
+    /** Override showing user/host */
+    showUserHost?: boolean;
+    /** Override showing path */
+    showPath?: boolean;
+    /** Override path style */
+    pathStyle?: 'full' | 'short' | 'basename';
+    /** Override path depth (0 = full path) */
+    pathDepth?: number;
+    /** Override showing time */
+    showTime?: boolean;
+    /** Override showing exit status */
+    showExitStatus?: boolean;
+    /** Project-specific custom aliases */
+    customAliases?: string;
+    /** Project-specific env vars */
+    customEnvVars?: Record<string, string>;
+    /** Custom welcome message for this project */
+    welcomeMessage?: string;
+  };
 
   // Deprecated Claude API Profile Override
   /**

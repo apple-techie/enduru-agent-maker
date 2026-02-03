@@ -140,9 +140,9 @@ const SUPPORTED_TERMINALS: TerminalDefinition[] = [
   {
     id: 'warp',
     name: 'Warp',
-    cliCommand: 'warp',
+    cliCommand: 'warp-cli',
+    cliAliases: ['warp-terminal', 'warp'],
     macAppName: 'Warp',
-    platform: 'darwin',
   },
   {
     id: 'ghostty',
@@ -474,6 +474,11 @@ async function executeTerminalCommand(terminal: TerminalInfo, targetPath: string
     case 'ghostty':
       // Ghostty: uses --working-directory=PATH format (single arg)
       await spawnDetached(command, [`--working-directory=${targetPath}`]);
+      break;
+
+    case 'warp':
+      // Warp: uses --cwd flag (CLI mode, not app bundle)
+      await spawnDetached(command, ['--cwd', targetPath]);
       break;
 
     case 'alacritty':

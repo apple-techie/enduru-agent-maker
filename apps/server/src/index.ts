@@ -390,7 +390,7 @@ const server = createServer(app);
 // WebSocket servers using noServer mode for proper multi-path support
 const wss = new WebSocketServer({ noServer: true });
 const terminalWss = new WebSocketServer({ noServer: true });
-const terminalService = getTerminalService();
+const terminalService = getTerminalService(settingsService);
 
 /**
  * Authenticate WebSocket upgrade requests
