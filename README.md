@@ -288,6 +288,31 @@ services:
 
 **Note:** The Claude CLI config must be writable (do not use `:ro` flag) as the CLI writes debug files.
 
+> **⚠️ Important: Linux/WSL Users**
+>
+> The container runs as UID 1001 by default. If your host user has a different UID (common on Linux/WSL where the first user is UID 1000), you must create a `.env` file to match your host user:
+>
+> ```bash
+> # Check your UID/GID
+> id -u  # outputs your UID (e.g., 1000)
+> id -g  # outputs your GID (e.g., 1000)
+> ```
+>
+> Create a `.env` file in the automaker directory:
+>
+> ```
+> UID=1000
+> GID=1000
+> ```
+>
+> Then rebuild the images:
+>
+> ```bash
+> docker compose build
+> ```
+>
+> Without this, files written by the container will be inaccessible to your host user.
+
 ##### GitHub CLI Authentication (For Git Push/PR Operations)
 
 To enable git push and GitHub CLI operations inside the container:
