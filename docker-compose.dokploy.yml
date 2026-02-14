@@ -1,0 +1,56 @@
+version: '3.8'
+
+# DOKPLOY DEPLOYMENT - Complete Configuration
+# Repository: https://github.com/apple-techie/enduru-agent-maker
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: server
+      args:
+        GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-main}
+        UID: 1000
+        GID: 1000
+    container_name: automaker-server
+    environment:
+      # AI API Keys
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=https://api.kainotomic.com/v1
+
+      # GitHub
+      - GH_TOKEN=${GH_TOKEN}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+
+      # CORS - set to your UI's Traefik domain
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://automaker-automaker-qd5be9-9cf360-47-157-56-159.traefik.me}
+
+      # Container config
+      - IS_CONTAINERIZED=true
+    volumes:
+      - automaker-data:/data
+      - automaker-projects:/projects
+      - automaker-claude-config:/home/automaker/.claude
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ui
+      args:
+        GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-main}
+        # CRITICAL: This gets baked into JavaScript at build time
+        # Set this to your UI's Traefik domain - nginx will proxy /api/ internally to server:3008
+        VITE_SERVER_URL: ${VITE_SERVER_URL:-https://automaker-automaker-qd5be9-9cf360-47-157-56-159.traefik.me}
+    container_name: automaker-ui
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  automaker-data:
+  automaker-projects:
+  automaker-claude-config:
